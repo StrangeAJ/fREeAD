@@ -47,7 +47,7 @@ class RSSFeed {
       'categoryId': categoryId,
       'dateAdded': dateAdded.toIso8601String(),
       'lastUpdated': lastUpdated?.toIso8601String(),
-      'isActive': isActive,
+      'isActive': isActive ? 1 : 0,
     };
   }
 

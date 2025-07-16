@@ -281,49 +281,60 @@ class ArticleProvider with ChangeNotifier {
 
   // Add default feeds for initial setup
   Future<void> _addDefaultFeeds() async {
-    final defaultFeeds = [
-      {
-        'url': 'https://feeds.bbci.co.uk/news/rss.xml',
-        'title': 'BBC News',
-        'description': 'Latest news from BBC',
-        'categoryId': 'news',
-      },
-      {
-        'url': 'https://rss.cnn.com/rss/edition.rss',
-        'title': 'CNN',
-        'description': 'Latest news from CNN',
-        'categoryId': 'news',
-      },
-      {
-        'url': 'https://feeds.npr.org/1001/rss.xml',
-        'title': 'NPR News',
-        'description': 'Latest news from NPR',
-        'categoryId': 'news',
-      },
-    ];
-
-    for (final feedData in defaultFeeds) {
-      try {
-        // Check if feed already exists
-        final existingFeed = await _databaseService.getFeedByUrl(feedData['url']!);
-        if (existingFeed == null) {
-          final feed = RSSFeed(
-            id: DateTime.now().millisecondsSinceEpoch.toString() + '_' + feedData['url'].hashCode.toString(),
-            title: feedData['title']!,
-            url: feedData['url']!,
-            description: feedData['description']!,
-            categoryId: feedData['categoryId']!,
-            isActive: true,
-            dateAdded: DateTime.now(),
-            lastUpdated: DateTime.now(),
-          );
-          
-          await _databaseService.insertFeed(feed);
-          print('Added default feed: ${feed.title}');
-        }
-      } catch (e) {
-        print('Error adding default feed ${feedData['title']}: $e');
+    try {
+      // Check if any feeds already exist
+      final existingFeeds = await _databaseService.getAllFeeds();
+      if (existingFeeds.isNotEmpty) {
+        print('Default feeds already exist, skipping initialization');
+        return;
       }
+      
+      final defaultFeeds = [
+        {
+          'url': 'https://feeds.bbci.co.uk/news/rss.xml',
+          'title': 'BBC News',
+          'description': 'Latest news from BBC',
+          'categoryId': 'news',
+        },
+        {
+          'url': 'https://rss.cnn.com/rss/edition.rss',
+          'title': 'CNN',
+          'description': 'Latest news from CNN',
+          'categoryId': 'news',
+        },
+        {
+          'url': 'https://feeds.npr.org/1001/rss.xml',
+          'title': 'NPR News',
+          'description': 'Latest news from NPR',
+          'categoryId': 'news',
+        },
+      ];
+
+      for (final feedData in defaultFeeds) {
+        try {
+          // Check if feed already exists
+          final existingFeed = await _databaseService.getFeedByUrl(feedData['url']!);
+          if (existingFeed == null) {
+            final feed = RSSFeed(
+              id: DateTime.now().millisecondsSinceEpoch.toString() + '_' + feedData['url'].hashCode.toString(),
+              title: feedData['title']!,
+              url: feedData['url']!,
+              description: feedData['description']!,
+              categoryId: feedData['categoryId']!,
+              isActive: true,
+              dateAdded: DateTime.now(),
+              lastUpdated: DateTime.now(),
+            );
+            
+            await _databaseService.insertFeed(feed);
+            print('Added default feed: ${feed.title}');
+          }
+        } catch (e) {
+          print('Error adding default feed ${feedData['title']}: $e');
+        }
+      }
+    } catch (e) {
+      print('Error in _addDefaultFeeds: $e');
     }
   }
 

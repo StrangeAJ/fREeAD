@@ -4,6 +4,7 @@ import '../providers/feed_provider.dart';
 import '../providers/article_provider.dart';
 import '../providers/settings_provider.dart';
 import '../screens/article_reading_screen.dart';
+import '../screens/feed_management_screen.dart';
 import '../widgets/futuristic_widgets.dart';
 import '../widgets/futuristic_dialogs.dart';
 
@@ -29,6 +30,11 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: FuturisticAppBar(
         title: 'FreeAd',
         actions: [
+          IconButton(
+            icon: const Icon(Icons.rss_feed_rounded),
+            onPressed: () => _showFeedManagement(),
+            tooltip: 'Manage Feeds',
+          ),
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             onPressed: () => _refreshContent(),
@@ -111,6 +117,15 @@ class _HomeScreenState extends State<HomeScreen> {
     showSearch(
       context: context,
       delegate: FuturisticSearchDelegate(),
+    );
+  }
+
+  void _showFeedManagement() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const FeedManagementScreen(),
+      ),
     );
   }
 

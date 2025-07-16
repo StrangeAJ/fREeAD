@@ -35,9 +35,39 @@ class DatabaseService {
     String path = join(await getDatabasesPath(), 'freead.db');
     return await openDatabase(
       path,
-      version: 1,
+      version: 3,
       onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
     );
+  }
+
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      // Add fullContent column to articles table
+      try {
+        await db.execute('ALTER TABLE articles ADD COLUMN fullContent TEXT');
+        print('Added fullContent column to articles table');
+      } catch (e) {
+        print('Error adding fullContent column: $e');
+        // Column might already exist, continue
+      }
+    }
+    
+    if (oldVersion < 3) {
+      // Fix any feeds with invalid category IDs
+      try {
+        await db.execute('''
+          UPDATE feeds 
+          SET categoryId = 'general' 
+          WHERE categoryId NOT IN (
+            SELECT id FROM categories
+          ) OR categoryId = 'news'
+        ''');
+        print('Fixed feeds with invalid category IDs');
+      } catch (e) {
+        print('Error fixing category IDs: $e');
+      }
+    }
   }
 
   Future<void> _onCreate(Database db, int version) async {
@@ -78,6 +108,7 @@ class DatabaseService {
         title TEXT NOT NULL,
         description TEXT NOT NULL,
         content TEXT,
+        fullContent TEXT,
         imageUrl TEXT,
         url TEXT NOT NULL,
         author TEXT,

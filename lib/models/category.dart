@@ -28,7 +28,7 @@ class Category {
       color: json['color'],
       dateCreated: DateTime.parse(json['dateCreated']),
       sortOrder: json['sortOrder'] ?? 0,
-      isDefault: json['isDefault'] ?? false,
+      isDefault: json['isDefault'] is int ? json['isDefault'] == 1 : (json['isDefault'] ?? false),
     );
   }
 
@@ -41,7 +41,7 @@ class Category {
       'color': color,
       'dateCreated': dateCreated.toIso8601String(),
       'sortOrder': sortOrder,
-      'isDefault': isDefault,
+      'isDefault': isDefault ? 1 : 0,
     };
   }
 

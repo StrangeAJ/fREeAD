@@ -35,12 +35,21 @@ class FeedProvider with ChangeNotifier {
             categoryId: 'news',
             isActive: true,
             dateAdded: DateTime.now(),
+            lastUpdated: DateTime.now(),
           ),
         ];
         _categories = model.Category.defaultCategories;
       } else {
         _feeds = await _databaseService.getAllFeeds();
         _categories = await _databaseService.getAllCategories();
+        
+        // Add default categories if none exist
+        if (_categories.isEmpty) {
+          _categories = model.Category.defaultCategories;
+          for (final category in _categories) {
+            await _databaseService.insertCategory(category);
+          }
+        }
       }
       _error = null;
     } catch (e) {
@@ -63,12 +72,13 @@ class FeedProvider with ChangeNotifier {
         // For web, just add to in-memory list
         final feed = RSSFeed(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
-          title: 'Sample Feed',
+          title: 'RSS Feed',
           url: url,
-          description: 'Sample feed for web demo',
+          description: 'RSS feed added from web',
           categoryId: categoryId ?? 'news',
           isActive: true,
           dateAdded: DateTime.now(),
+          lastUpdated: DateTime.now(),
         );
         _feeds.add(feed);
         
@@ -82,12 +92,14 @@ class FeedProvider with ChangeNotifier {
 
       // For development, skip validation or use simpler validation
       bool isValid = true;
-      try {
-        isValid = await _rssService.validateFeedUrl(url);
-      } catch (e) {
-        print('Validation error: $e');
-        // For development, allow feed addition even if validation fails
-        isValid = true;
+      if (!kIsWeb) {
+        try {
+          isValid = await _rssService.validateFeedUrl(url);
+        } catch (e) {
+          print('Validation error: $e');
+          // For development, allow feed addition even if validation fails
+          isValid = true;
+        }
       }
       
       if (!isValid) {

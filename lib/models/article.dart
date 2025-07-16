@@ -66,9 +66,9 @@ class Article {
       'publishedDate': publishedDate.toIso8601String(),
       'feedId': feedId,
       'categoryId': categoryId,
-      'isRead': isRead,
-      'isSaved': isSaved,
-      'isStarred': isStarred,
+      'isRead': isRead ? 1 : 0,
+      'isSaved': isSaved ? 1 : 0,
+      'isStarred': isStarred ? 1 : 0,
       'dateAdded': dateAdded.toIso8601String(),
     };
   }
