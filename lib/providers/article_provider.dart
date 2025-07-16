@@ -3,10 +3,12 @@ import '../models/article.dart';
 import '../models/rss_feed.dart';
 import '../services/database_service.dart';
 import '../services/rss_service.dart';
+import '../services/full_article_service.dart';
 
 class ArticleProvider with ChangeNotifier {
   final DatabaseService _databaseService = DatabaseService();
   final RSSService _rssService = RSSService();
+  final FullArticleService _fullArticleService = FullArticleService();
 
   List<Article> _articles = [];
   List<Article> _savedArticles = [];
@@ -14,6 +16,9 @@ class ArticleProvider with ChangeNotifier {
   bool _isLoading = false;
   String? _error;
   String _currentFilter = 'all';
+  
+  // Track loading state for full articles
+  final Set<String> _loadingFullArticles = {};
   
   // For web platform, store feeds in memory
   static List<String> _webFeeds = [];
@@ -25,6 +30,11 @@ class ArticleProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
   String get currentFilter => _currentFilter;
+  
+  // Check if a full article is being loaded
+  bool isLoadingFullArticle(String articleId) {
+    return _loadingFullArticles.contains(articleId);
+  }
   
   // Add feed for web platform
   void addWebFeed(String url) {
@@ -446,6 +456,67 @@ class ArticleProvider with ChangeNotifier {
       return _articles.firstWhere((a) => a.id == articleId);
     } catch (e) {
       return null;
+    }
+  }
+
+  // Load full article content
+  Future<bool> loadFullArticle(String articleId) async {
+    try {
+      final article = getArticleById(articleId);
+      if (article == null) {
+        _error = 'Article not found';
+        return false;
+      }
+
+      // If already has full content, return success
+      if (article.fullContent != null && article.fullContent!.isNotEmpty) {
+        return true;
+      }
+
+      // Mark as loading
+      _loadingFullArticles.add(articleId);
+      notifyListeners();
+
+      // Fetch full article content
+      final fullContent = await _fullArticleService.fetchFullArticleContent(article.url);
+      
+      // Remove from loading set
+      _loadingFullArticles.remove(articleId);
+      
+      if (fullContent != null && fullContent.isNotEmpty) {
+        // Update article with full content
+        final updatedArticle = article.copyWith(fullContent: fullContent);
+        
+        // Update in lists
+        final index = _articles.indexWhere((a) => a.id == articleId);
+        if (index != -1) {
+          _articles[index] = updatedArticle;
+        }
+        
+        // Update in saved articles if applicable
+        final savedIndex = _savedArticles.indexWhere((a) => a.id == articleId);
+        if (savedIndex != -1) {
+          _savedArticles[savedIndex] = updatedArticle;
+        }
+        
+        // Update in starred articles if applicable
+        final starredIndex = _starredArticles.indexWhere((a) => a.id == articleId);
+        if (starredIndex != -1) {
+          _starredArticles[starredIndex] = updatedArticle;
+        }
+        
+        notifyListeners();
+        return true;
+      } else {
+        _error = 'Failed to load full article content';
+        notifyListeners();
+        return false;
+      }
+    } catch (e) {
+      _loadingFullArticles.remove(articleId);
+      _error = 'Failed to load full article: $e';
+      notifyListeners();
+      return false;
     }
   }
 

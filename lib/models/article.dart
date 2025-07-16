@@ -3,6 +3,7 @@ class Article {
   final String title;
   final String description;
   final String? content;
+  final String? fullContent; // New field for full article content
   final String? imageUrl;
   final String url;
   final String? author;
@@ -19,6 +20,7 @@ class Article {
     required this.title,
     required this.description,
     this.content,
+    this.fullContent,
     this.imageUrl,
     required this.url,
     this.author,
@@ -37,6 +39,7 @@ class Article {
       title: json['title'],
       description: json['description'],
       content: json['content'],
+      fullContent: json['fullContent'],
       imageUrl: json['imageUrl'],
       url: json['url'],
       author: json['author'],
@@ -56,6 +59,7 @@ class Article {
       'title': title,
       'description': description,
       'content': content,
+      'fullContent': fullContent,
       'imageUrl': imageUrl,
       'url': url,
       'author': author,
@@ -74,6 +78,7 @@ class Article {
     String? title,
     String? description,
     String? content,
+    String? fullContent,
     String? imageUrl,
     String? url,
     String? author,
@@ -90,6 +95,7 @@ class Article {
       title: title ?? this.title,
       description: description ?? this.description,
       content: content ?? this.content,
+      fullContent: fullContent ?? this.fullContent,
       imageUrl: imageUrl ?? this.imageUrl,
       url: url ?? this.url,
       author: author ?? this.author,

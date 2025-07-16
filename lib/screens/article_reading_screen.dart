@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:flutter_html/flutter_html.dart';
 import '../models/article.dart';
 import '../providers/article_provider.dart';
 import '../providers/settings_provider.dart';
@@ -22,6 +23,7 @@ class ArticleReadingScreen extends StatefulWidget {
 class _ArticleReadingScreenState extends State<ArticleReadingScreen> {
   final ScrollController _scrollController = ScrollController();
   bool _isScrolled = false;
+  bool _showFullContent = false;
 
   @override
   void initState() {
@@ -276,84 +278,321 @@ class _ArticleReadingScreenState extends State<ArticleReadingScreen> {
   }
 
   Widget _buildContent(BuildContext context, SettingsProvider settings) {
-    final content = widget.article.content ?? widget.article.description;
-    
-    if (content.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          children: [
-            Icon(
-              Icons.article_outlined,
-              size: 48,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
+    return Consumer<ArticleProvider>(
+      builder: (context, articleProvider, child) {
+        final article = articleProvider.getArticleById(widget.article.id) ?? widget.article;
+        final isLoadingFull = articleProvider.isLoadingFullArticle(widget.article.id);
+        
+        // Determine which content to show
+        String displayContent;
+        if (_showFullContent && article.fullContent != null && article.fullContent!.isNotEmpty) {
+          displayContent = article.fullContent!;
+        } else {
+          displayContent = article.content ?? article.description;
+        }
+        
+        if (displayContent.isEmpty) {
+          return Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+              borderRadius: BorderRadius.circular(12),
             ),
-            const SizedBox(height: 16),
-            Text(
-              'No content available',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+            child: Column(
+              children: [
+                Icon(
+                  Icons.article_outlined,
+                  size: 48,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'No content available',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Tap "Read Full Article" to load the complete article',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Tap "Read Full Article" to view the complete article',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      );
-    }
+          );
+        }
 
-    return SelectableText(
-      _cleanContent(content),
-      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-        fontSize: settings.fontSize,
-        height: 1.6,
-        color: _getTextColor(context, settings),
-      ),
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Loading indicator for full article
+            if (isLoadingFull)
+              Container(
+                padding: const EdgeInsets.all(16),
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.5),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Loading full article...',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onPrimaryContainer,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            
+            // Content type indicator
+            if (_showFullContent && article.fullContent != null && article.fullContent!.isNotEmpty)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.article,
+                      size: 16,
+                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Full Article',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onPrimaryContainer,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            
+            // Article content
+            if (_showFullContent && article.fullContent != null && article.fullContent!.isNotEmpty)
+              Html(
+                data: article.fullContent!,
+                style: {
+                  "body": Style(
+                    fontSize: FontSize(settings.fontSize),
+                    lineHeight: LineHeight(1.6),
+                    color: _getTextColor(context, settings),
+                    fontFamily: Theme.of(context).textTheme.bodyLarge?.fontFamily,
+                  ),
+                  "p": Style(
+                    fontSize: FontSize(settings.fontSize),
+                    lineHeight: LineHeight(1.6),
+                    margin: Margins.only(bottom: 12),
+                  ),
+                  "h1": Style(
+                    fontSize: FontSize(settings.fontSize * 1.5),
+                    fontWeight: FontWeight.bold,
+                    margin: Margins.only(top: 16, bottom: 8),
+                  ),
+                  "h2": Style(
+                    fontSize: FontSize(settings.fontSize * 1.3),
+                    fontWeight: FontWeight.bold,
+                    margin: Margins.only(top: 14, bottom: 6),
+                  ),
+                  "h3": Style(
+                    fontSize: FontSize(settings.fontSize * 1.2),
+                    fontWeight: FontWeight.bold,
+                    margin: Margins.only(top: 12, bottom: 4),
+                  ),
+                  "blockquote": Style(
+                    border: Border(
+                      left: BorderSide(
+                        color: Theme.of(context).colorScheme.primary,
+                        width: 4,
+                      ),
+                    ),
+                    padding: HtmlPaddings.only(left: 16, top: 8, bottom: 8),
+                    margin: Margins.only(top: 8, bottom: 8),
+                    backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                  ),
+                  "a": Style(
+                    color: Theme.of(context).colorScheme.primary,
+                    textDecoration: TextDecoration.underline,
+                  ),
+                  "img": Style(
+                    margin: Margins.only(top: 8, bottom: 8),
+                  ),
+                  "ul": Style(
+                    margin: Margins.only(top: 8, bottom: 8),
+                  ),
+                  "ol": Style(
+                    margin: Margins.only(top: 8, bottom: 8),
+                  ),
+                  "li": Style(
+                    margin: Margins.only(bottom: 4),
+                  ),
+                  "strong": Style(
+                    fontWeight: FontWeight.bold,
+                  ),
+                  "em": Style(
+                    fontStyle: FontStyle.italic,
+                  ),
+                  "code": Style(
+                    backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                    padding: HtmlPaddings.symmetric(horizontal: 4, vertical: 2),
+                    fontSize: FontSize(settings.fontSize * 0.9),
+                    fontFamily: 'monospace',
+                  ),
+                  "pre": Style(
+                    backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                    padding: HtmlPaddings.all(12),
+                    margin: Margins.only(top: 8, bottom: 8),
+                    fontSize: FontSize(settings.fontSize * 0.9),
+                    fontFamily: 'monospace',
+                  ),
+                },
+                onLinkTap: (url, _, __) {
+                  if (url != null) {
+                    launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+                  }
+                },
+              )
+            else
+              SelectableText(
+                _cleanContent(displayContent),
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  fontSize: settings.fontSize,
+                  height: 1.6,
+                  color: _getTextColor(context, settings),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 
   Widget _buildReadOriginalButton(BuildContext context) {
-    return Center(
-      child: Column(
-        children: [
-          ElevatedButton.icon(
-            onPressed: () => _launchOriginalArticle(),
-            icon: const Icon(Icons.web),
-            label: const Text('Read Full Article'),
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            ),
+    return Consumer<ArticleProvider>(
+      builder: (context, articleProvider, child) {
+        final article = articleProvider.getArticleById(widget.article.id) ?? widget.article;
+        final isLoadingFull = articleProvider.isLoadingFullArticle(widget.article.id);
+        final hasFullContent = article.fullContent != null && article.fullContent!.isNotEmpty;
+        
+        return Center(
+          child: Column(
+            children: [
+              // Toggle between full content and original content
+              if (hasFullContent) ...[
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: isLoadingFull ? null : () {
+                        setState(() {
+                          _showFullContent = !_showFullContent;
+                        });
+                      },
+                      icon: Icon(_showFullContent ? Icons.description : Icons.article),
+                      label: Text(_showFullContent ? 'Show Original' : 'Show Full Article'),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton.icon(
+                      onPressed: () => _launchOriginalArticle(),
+                      icon: const Icon(Icons.web),
+                      label: const Text('Open in Browser'),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        backgroundColor: Theme.of(context).colorScheme.secondary,
+                        foregroundColor: Theme.of(context).colorScheme.onSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ] else ...[
+                // Load full article for the first time
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: isLoadingFull ? null : () async {
+                        final success = await articleProvider.loadFullArticle(widget.article.id);
+                        if (success) {
+                          setState(() {
+                            _showFullContent = true;
+                          });
+                        } else {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(articleProvider.error ?? 'Failed to load full article'),
+                                action: SnackBarAction(
+                                  label: 'Try Browser',
+                                  onPressed: _launchOriginalArticle,
+                                ),
+                              ),
+                            );
+                          }
+                        }
+                      },
+                      icon: isLoadingFull 
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.article),
+                      label: Text(isLoadingFull ? 'Loading...' : 'Read Full Article'),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton.icon(
+                      onPressed: () => _launchOriginalArticle(),
+                      icon: const Icon(Icons.web),
+                      label: const Text('Open in Browser'),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        backgroundColor: Theme.of(context).colorScheme.secondary,
+                        foregroundColor: Theme.of(context).colorScheme.onSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+              
+              const SizedBox(height: 8),
+              
+              // URL display
+              if (widget.article.url.isNotEmpty)
+                SelectableText(
+                  widget.article.url,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.primary,
+                    decoration: TextDecoration.underline,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                ),
+            ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            'Opens in in-app browser',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 4),
-          if (widget.article.url.isNotEmpty)
-            SelectableText(
-              widget.article.url,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.primary,
-                decoration: TextDecoration.underline,
-              ),
-              textAlign: TextAlign.center,
-              maxLines: 2,
-            ),
-        ],
-      ),
+        );
+      },
     );
   }
 

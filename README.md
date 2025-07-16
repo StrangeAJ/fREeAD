@@ -12,12 +12,18 @@ A modern Flutter RSS reader application with Material 3 design and comprehensive
   - Article header with metadata (author, publication date)
   - Article image display with fallback handling
   - Smooth scrolling with scroll-to-top functionality
+  - **NEW: Full Article Loading**: Load complete article content from the original source
+    - Intelligent content extraction using readability algorithms
+    - Toggle between RSS summary and full article content
+    - In-app loading with progress indicators
+    - Fallback to browser if content extraction fails
 
 ### Article Management
 - **Save Articles**: Bookmark articles for later reading
 - **Star Articles**: Mark important articles with star rating
 - **Read Status**: Automatic read/unread tracking
 - **Share Articles**: Copy article links or share content
+- **Full Article Caching**: Automatically cache full article content for offline reading
 
 ### User Interface
 - **Material 3 Design**: Modern, adaptive design system
@@ -37,7 +43,10 @@ A modern Flutter RSS reader application with Material 3 design and comprehensive
 2. **Read Articles**: Tap any article to open in the reading screen
 3. **Save for Later**: Use the bookmark icon to save articles
 4. **Star Important**: Use the star icon to mark important articles
-5. **Read Full Article**: Tap "Read Full Article" to view the complete article in in-app browser
+5. **Read Full Article**: 
+   - Tap "Read Full Article" to load the complete article content in the same screen
+   - Toggle between "Show Original" (RSS summary) and "Show Full Article" (complete content)
+   - Use "Open in Browser" if you prefer the original website experience
 
 ## Technical Features
 
@@ -45,7 +54,12 @@ A modern Flutter RSS reader application with Material 3 design and comprehensive
 - **Network Caching**: Efficient image and data caching
 - **State Management**: Provider pattern for reactive UI
 - **URL Handling**: Direct browser integration for external links
-- **HTML Parsing**: Clean article content extraction
+- **HTML Parsing**: Clean article content extraction using readability algorithms
+- **Full Article Processing**: 
+  - Intelligent content extraction removes ads, navigation, and clutter
+  - Mozilla Readability-inspired algorithm for clean text extraction
+  - Automatic HTML entity decoding and text formatting
+  - Fallback mechanisms for various website structures
 
 ## Getting Started
 
