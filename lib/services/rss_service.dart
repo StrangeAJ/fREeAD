@@ -198,17 +198,26 @@ class RSSService {
                          _getElementText(item, 'summary') ?? '';
       final link = _getElementText(item, 'link');
       final author = _getElementText(item, 'author') ?? 
-                    _getElementText(item, 'dc:creator') ?? 'Unknown';
+                    _getElementText(item, 'dc:creator') ?? 
+                    _getElementText(item, 'creator') ?? 'Unknown';
       final pubDateString = _getElementText(item, 'pubDate');
       final pubDate = _parseDate(pubDateString) ?? DateTime.now();
-      final content = _getElementText(item, 'content:encoded') ?? description;
+      
+      // Try to get better content from various sources
+      String content = _getElementText(item, 'content:encoded') ?? 
+                      _getElementText(item, 'content') ?? 
+                      description;
+      
+      // Extract image URL from content or media elements
       final imageUrl = _getArticleImageUrl(item, content);
 
       print('Parsing RSS item:');
       print('  Title: $title');
       print('  Link: $link');
+      print('  Author: $author');
       print('  PubDate string: $pubDateString');
       print('  PubDate parsed: $pubDate');
+      print('  Content length: ${content.length}');
 
       // Only require title and link, provide defaults for others
       if (title == null || title.isEmpty) {
@@ -221,15 +230,26 @@ class RSSService {
         return null;
       }
 
+      // Clean and validate content
+      final cleanTitle = _cleanText(title);
+      final cleanDescription = _cleanText(description);
+      final cleanContent = _cleanText(content);
+      final cleanAuthor = _cleanText(author);
+
+      // Skip if content is too short or seems to be navigation/menu content
+      if (cleanContent.length < 50) {
+        print('  Warning: Content is very short (${cleanContent.length} chars)');
+      }
+
       return Article(
         id: _generateArticleId(link),
-        title: _cleanText(title),
-        description: _cleanText(description),
-        content: _cleanText(content),
+        title: cleanTitle,
+        description: cleanDescription,
+        content: cleanContent,
         url: link,
         feedId: feedId,
         publishedDate: pubDate,
-        author: author,
+        author: cleanAuthor,
         isRead: false,
         isStarred: false,
         isSaved: false,
@@ -248,29 +268,60 @@ class RSSService {
       final title = _getElementText(entry, 'title');
       final summary = _getElementText(entry, 'summary');
       final content = _getElementText(entry, 'content') ?? summary ?? '';
-      final linkElement = entry.findElements('link').first;
-      final link = linkElement.getAttribute('href');
-      final author = _getElementText(entry, 'author');
-      final updated = _parseDate(_getElementText(entry, 'updated'));
+      
+      // Get link from Atom entry
+      final linkElement = entry.findElements('link').firstOrNull;
+      final link = linkElement?.getAttribute('href');
+      
+      // Get author information
+      final authorElement = entry.findElements('author').firstOrNull;
+      final author = authorElement != null 
+          ? (_getElementText(authorElement, 'name') ?? 'Unknown')
+          : 'Unknown';
+      
+      // Get published/updated date
+      final publishedString = _getElementText(entry, 'published');
+      final updatedString = _getElementText(entry, 'updated');
+      final pubDate = _parseDate(publishedString) ?? _parseDate(updatedString) ?? DateTime.now();
+      
       final imageUrl = _getArticleImageUrl(entry, content);
 
-      if (title == null || link == null || updated == null) {
+      print('Parsing Atom entry:');
+      print('  Title: $title');
+      print('  Link: $link');
+      print('  Author: $author');
+      print('  Published: $publishedString');
+      print('  Updated: $updatedString');
+      print('  Content length: ${content.length}');
+
+      if (title == null || title.isEmpty || link == null || link.isEmpty) {
+        print('  Skipping entry - missing title or link');
         return null;
       }
 
+      // Clean content
+      final cleanTitle = _cleanText(title);
+      final cleanSummary = _cleanText(summary ?? '');
+      final cleanContent = _cleanText(content);
+      final cleanAuthor = _cleanText(author);
+
       return Article(
         id: _generateArticleId(link),
-        title: _cleanText(title),
-        description: _cleanText(summary ?? ''),
-        content: _cleanText(content),
+        title: cleanTitle,
+        description: cleanSummary,
+        content: cleanContent,
         imageUrl: imageUrl,
         url: link,
-        author: author,
-        publishedDate: updated,
+        author: cleanAuthor,
+        publishedDate: pubDate,
         feedId: feedId,
+        isRead: false,
+        isStarred: false,
+        isSaved: false,
         dateAdded: DateTime.now(),
       );
     } catch (e) {
+      print('Error parsing Atom entry: $e');
       return null;
     }
   }
@@ -317,11 +368,8 @@ class RSSService {
   /// Get image URL from article content
   String? _getArticleImageUrl(XmlElement item, String content) {
     try {
-      // Try media:content
-      final mediaContent = item.findElements('media:content').isNotEmpty
-          ? item.findElements('media:content').first
-          : null;
-      
+      // Try media:content first
+      final mediaContent = item.findElements('media:content').firstOrNull;
       if (mediaContent != null) {
         final url = mediaContent.getAttribute('url');
         final type = mediaContent.getAttribute('type');
@@ -330,11 +378,17 @@ class RSSService {
         }
       }
       
-      // Try enclosure
-      final enclosure = item.findElements('enclosure').isNotEmpty
-          ? item.findElements('enclosure').first
-          : null;
+      // Try media:thumbnail
+      final mediaThumbnail = item.findElements('media:thumbnail').firstOrNull;
+      if (mediaThumbnail != null) {
+        final url = mediaThumbnail.getAttribute('url');
+        if (url != null) {
+          return url;
+        }
+      }
       
+      // Try enclosure
+      final enclosure = item.findElements('enclosure').firstOrNull;
       if (enclosure != null) {
         final url = enclosure.getAttribute('url');
         final type = enclosure.getAttribute('type');
@@ -343,42 +397,127 @@ class RSSService {
         }
       }
       
+      // Try itunes:image
+      final itunesImage = item.findElements('itunes:image').firstOrNull;
+      if (itunesImage != null) {
+        final url = itunesImage.getAttribute('href');
+        if (url != null) {
+          return url;
+        }
+      }
+      
       // Parse HTML content for images
       if (content.isNotEmpty) {
         final document = html_parser.parse(content);
-        final img = document.querySelector('img');
-        if (img != null) {
-          return img.attributes['src'];
+        
+        // Try to find the first meaningful image
+        final images = document.querySelectorAll('img');
+        for (final img in images) {
+          final src = img.attributes['src'];
+          if (src != null && src.isNotEmpty) {
+            // Skip small images (likely icons or social media buttons)
+            final width = img.attributes['width'];
+            final height = img.attributes['height'];
+            
+            if (width != null && height != null) {
+              final w = int.tryParse(width) ?? 0;
+              final h = int.tryParse(height) ?? 0;
+              if (w > 100 && h > 100) {
+                return src;
+              }
+            } else {
+              // If no dimensions specified, assume it's content-related
+              return src;
+            }
+          }
+        }
+        
+        // If no good image found, try the first image
+        final firstImg = document.querySelector('img');
+        if (firstImg != null) {
+          final src = firstImg.attributes['src'];
+          if (src != null && src.isNotEmpty) {
+            return src;
+          }
         }
       }
       
       return null;
     } catch (e) {
+      print('Error extracting image URL: $e');
       return null;
     }
   }
 
-  /// Parse date string to DateTime
+  /// Parse date string to DateTime with multiple format support
   DateTime? _parseDate(String? dateString) {
-    if (dateString == null) return null;
+    if (dateString == null || dateString.isEmpty) return null;
     
     try {
-      // Try RFC 822 format (RSS)
+      // Try parsing as-is first (handles ISO 8601 and RFC 822)
       return DateTime.parse(dateString);
     } catch (e) {
       try {
-        // Try ISO 8601 format (Atom)
-        return DateTime.parse(dateString);
-      } catch (e) {
-        return null;
+        // Try parsing with RFC 822 format manually
+        // Example: "Mon, 01 Jan 2024 12:00:00 +0000"
+        final cleanedDate = dateString
+            .replaceAll(RegExp(r'[A-Za-z]{3},\s*'), '') // Remove day name
+            .replaceAll(RegExp(r'\s+'), ' ') // Normalize spaces
+            .trim();
+        
+        return DateTime.parse(cleanedDate);
+      } catch (e2) {
+        try {
+          // Try parsing with common date formats
+          final formats = [
+            RegExp(r'(\d{1,2})\s+(\w+)\s+(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})'),
+            RegExp(r'(\d{4})-(\d{2})-(\d{2})\s+(\d{1,2}):(\d{2}):(\d{2})'),
+            RegExp(r'(\d{1,2})/(\d{1,2})/(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})'),
+          ];
+          
+          for (final format in formats) {
+            final match = format.firstMatch(dateString);
+            if (match != null) {
+              // Parse based on the matched format
+              return DateTime.now(); // Fallback to current date
+            }
+          }
+        } catch (e3) {
+          print('Failed to parse date: $dateString');
+        }
       }
     }
+    
+    return null;
   }
 
-  /// Clean text content
+  /// Clean text content and handle various encodings
   String _cleanText(String text) {
-    final document = html_parser.parse(text);
-    return document.body?.text ?? text;
+    if (text.isEmpty) return text;
+    
+    try {
+      // Parse HTML to get clean text
+      final document = html_parser.parse(text);
+      String cleanText = document.body?.text ?? text;
+      
+      // Handle common HTML entities
+      cleanText = cleanText
+          .replaceAll('&nbsp;', ' ')
+          .replaceAll('&amp;', '&')
+          .replaceAll('&lt;', '<')
+          .replaceAll('&gt;', '>')
+          .replaceAll('&quot;', '"')
+          .replaceAll('&#39;', "'")
+          .replaceAll('&apos;', "'");
+      
+      // Clean up excessive whitespace
+      cleanText = cleanText.replaceAll(RegExp(r'\s+'), ' ').trim();
+      
+      return cleanText;
+    } catch (e) {
+      // If parsing fails, return original text with basic cleanup
+      return text.replaceAll(RegExp(r'\s+'), ' ').trim();
+    }
   }
 
   /// Generate unique feed ID

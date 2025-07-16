@@ -4,11 +4,13 @@ import '../models/rss_feed.dart';
 import '../services/database_service.dart';
 import '../services/rss_service.dart';
 import '../services/full_article_service.dart';
+import '../services/enhanced_article_service.dart';
 
 class ArticleProvider with ChangeNotifier {
   final DatabaseService _databaseService = DatabaseService();
   final RSSService _rssService = RSSService();
   final FullArticleService _fullArticleService = FullArticleService();
+  final EnhancedArticleService _enhancedArticleService = EnhancedArticleService();
 
   List<Article> _articles = [];
   List<Article> _savedArticles = [];
@@ -477,8 +479,25 @@ class ArticleProvider with ChangeNotifier {
       _loadingFullArticles.add(articleId);
       notifyListeners();
 
-      // Fetch full article content
-      final fullContent = await _fullArticleService.fetchFullArticleContent(article.url);
+      // Fetch full article content using enhanced service first
+      Map<String, dynamic>? extractedContent;
+      String? fullContent;
+      
+      try {
+        print('Trying enhanced article extraction for: ${article.url}');
+        extractedContent = await _enhancedArticleService.extractArticleContent(article.url);
+        
+        if (extractedContent != null && extractedContent['content'] != null) {
+          fullContent = extractedContent['content'];
+          print('Enhanced extraction successful. Content length: ${fullContent?.length}');
+        } else {
+          print('Enhanced extraction failed, falling back to original service');
+          fullContent = await _fullArticleService.fetchFullArticleContent(article.url);
+        }
+      } catch (e) {
+        print('Enhanced extraction error: $e, falling back to original service');
+        fullContent = await _fullArticleService.fetchFullArticleContent(article.url);
+      }
       
       // Remove from loading set
       _loadingFullArticles.remove(articleId);

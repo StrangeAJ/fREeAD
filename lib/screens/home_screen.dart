@@ -4,6 +4,8 @@ import '../providers/feed_provider.dart';
 import '../providers/article_provider.dart';
 import '../providers/settings_provider.dart';
 import '../screens/article_reading_screen.dart';
+import '../widgets/futuristic_widgets.dart';
+import '../widgets/futuristic_dialogs.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -17,47 +19,67 @@ class _HomeScreenState extends State<HomeScreen> {
   
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('FreeAd'),
+      extendBody: true,
+      extendBodyBehindAppBar: true,
+      backgroundColor: isDark ? const Color(0xFF000000) : const Color(0xFFF5F5F7),
+      appBar: FuturisticAppBar(
+        title: 'FreeAd',
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh_rounded),
             onPressed: () => _refreshContent(),
           ),
           IconButton(
-            icon: const Icon(Icons.search),
+            icon: const Icon(Icons.search_rounded),
             onPressed: () => _showSearch(),
           ),
         ],
       ),
-      body: _buildBody(),
-      bottomNavigationBar: BottomNavigationBar(
+      body: AnimatedGradientBackground(
+        colors: isDark ? [
+          const Color(0xFF000000),
+          const Color(0xFF1C1C1E),
+          const Color(0xFF2C2C2E),
+        ] : [
+          const Color(0xFFF5F5F7),
+          const Color(0xFFE8E8EA),
+          const Color(0xFFD1D1D6),
+        ],
+        child: SafeArea(
+          child: _buildBody(),
+        ),
+      ),
+      bottomNavigationBar: FuturisticBottomNav(
         currentIndex: _selectedIndex,
         onTap: (index) => setState(() => _selectedIndex = index),
-        type: BottomNavigationBarType.fixed,
         items: const [
           BottomNavigationBarItem(
-            icon: Icon(Icons.home),
+            icon: Icon(Icons.home_rounded),
             label: 'Home',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.category),
+            icon: Icon(Icons.category_rounded),
             label: 'Categories',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.bookmark),
+            icon: Icon(Icons.bookmark_rounded),
             label: 'Saved',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.settings),
+            icon: Icon(Icons.settings_rounded),
             label: 'Settings',
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FuturisticFAB(
         onPressed: () => _showAddFeedDialog(),
-        child: const Icon(Icons.add),
+        icon: Icons.add_rounded,
+        tooltip: 'Add Feed',
+        showPulse: true,
       ),
     );
   }
@@ -88,14 +110,14 @@ class _HomeScreenState extends State<HomeScreen> {
   void _showSearch() {
     showSearch(
       context: context,
-      delegate: ArticleSearchDelegate(),
+      delegate: FuturisticSearchDelegate(),
     );
   }
 
   void _showAddFeedDialog() {
     showDialog(
       context: context,
-      builder: (context) => const AddFeedDialog(),
+      builder: (context) => const FuturisticAddFeedDialog(),
     );
   }
 }
@@ -113,53 +135,67 @@ class HomeTab extends StatelessWidget {
 
         if (articleProvider.error != null) {
           return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.error_outline,
-                  size: 48,
-                  color: Theme.of(context).colorScheme.error,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Error loading articles',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  articleProvider.error!,
-                  style: Theme.of(context).textTheme.bodyMedium,
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () => articleProvider.loadArticles(),
-                  child: const Text('Retry'),
-                ),
-              ],
+            child: FuturisticCard(
+              showGlow: true,
+              glowColor: Colors.red,
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.error_outline_rounded,
+                    size: 48,
+                    color: Theme.of(context).colorScheme.error,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Error loading articles',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    articleProvider.error!,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () => articleProvider.loadArticles(),
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
             ),
           );
         }
 
         final articles = articleProvider.articles;
         if (articles.isEmpty) {
-          return const Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.rss_feed, size: 64, color: Colors.grey),
-                SizedBox(height: 16),
-                Text(
-                  'No articles yet',
-                  style: TextStyle(fontSize: 18, color: Colors.grey),
-                ),
-                SizedBox(height: 8),
-                Text(
-                  'Add some RSS feeds to get started',
-                  style: TextStyle(color: Colors.grey),
-                ),
-              ],
+          return Center(
+            child: FuturisticCard(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.rss_feed_rounded, 
+                    size: 64, 
+                    color: Theme.of(context).colorScheme.primary.withOpacity(0.6),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No articles yet',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Add some RSS feeds to get started',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                    ),
+                  ),
+                ],
+              ),
             ),
           );
         }
@@ -167,82 +203,119 @@ class HomeTab extends StatelessWidget {
         return RefreshIndicator(
           onRefresh: () => articleProvider.refreshAllArticles(),
           child: ListView.builder(
+            padding: const EdgeInsets.only(bottom: 100), // Account for bottom nav
             itemCount: articles.length,
             itemBuilder: (context, index) {
               final article = articles[index];
-              return Card(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: ListTile(
-                  leading: article.imageUrl != null
-                      ? ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Image.network(
-                            article.imageUrl!,
-                            width: 56,
-                            height: 56,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              return Container(
-                                width: 56,
-                                height: 56,
-                                color: Colors.grey[300],
-                                child: const Icon(Icons.article),
-                              );
-                            },
-                          ),
-                        )
-                      : Container(
-                          width: 56,
-                          height: 56,
-                          decoration: BoxDecoration(
-                            color: Colors.grey[300],
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(Icons.article),
-                        ),
-                  title: Text(
-                    article.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontWeight: article.isRead ? FontWeight.normal : FontWeight.bold,
+              return FuturisticCard(
+                onTap: () => _openArticle(context, article),
+                showGlow: !article.isRead,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Article image
+                    Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(16),
+                        color: Theme.of(context).colorScheme.surfaceVariant,
+                      ),
+                      child: article.imageUrl != null
+                          ? ClipRRect(
+                              borderRadius: BorderRadius.circular(16),
+                              child: Image.network(
+                                article.imageUrl!,
+                                width: 80,
+                                height: 80,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Container(
+                                    width: 80,
+                                    height: 80,
+                                    decoration: BoxDecoration(
+                                      color: Theme.of(context).colorScheme.surfaceVariant,
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                    child: Icon(
+                                      Icons.article_rounded,
+                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                    ),
+                                  );
+                                },
+                              ),
+                            )
+                          : Icon(
+                              Icons.article_rounded,
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            ),
                     ),
-                  ),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        article.description,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+                    const SizedBox(width: 16),
+                    
+                    // Article content
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            article.title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: article.isRead ? FontWeight.w500 : FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            article.description,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.access_time_rounded,
+                                size: 16,
+                                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                article.timeAgo,
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        article.timeAgo,
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ],
-                  ),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: Icon(
-                          article.isSaved ? Icons.bookmark : Icons.bookmark_border,
-                          color: article.isSaved ? Colors.orange : null,
+                    ),
+                    
+                    // Action buttons
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: Icon(
+                            article.isSaved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+                            color: article.isSaved ? Colors.orange : null,
+                          ),
+                          onPressed: () => articleProvider.toggleSaved(article.id),
                         ),
-                        onPressed: () => articleProvider.toggleSaved(article.id),
-                      ),
-                      IconButton(
-                        icon: Icon(
-                          article.isStarred ? Icons.star : Icons.star_border,
-                          color: article.isStarred ? Colors.amber : null,
+                        IconButton(
+                          icon: Icon(
+                            article.isStarred ? Icons.star_rounded : Icons.star_border_rounded,
+                            color: article.isStarred ? Colors.amber : null,
+                          ),
+                          onPressed: () => articleProvider.toggleStarred(article.id),
                         ),
-                        onPressed: () => articleProvider.toggleStarred(article.id),
-                      ),
-                    ],
-                  ),
-                  onTap: () => _openArticle(context, article),
+                      ],
+                    ),
+                  ],
                 ),
               );
             },
@@ -275,40 +348,105 @@ class CategoriesTab extends StatelessWidget {
 
         final categories = feedProvider.categories;
         if (categories.isEmpty) {
-          return const Center(
-            child: Text('No categories available'),
+          return Center(
+            child: FuturisticCard(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.category_rounded,
+                    size: 64,
+                    color: Theme.of(context).colorScheme.primary.withOpacity(0.6),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No categories yet',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Categories will appear here as you add feeds',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           );
         }
 
         return ListView.builder(
+          padding: const EdgeInsets.only(bottom: 100), // Account for bottom nav
           itemCount: categories.length,
           itemBuilder: (context, index) {
             final category = categories[index];
             final feedCount = feedProvider.getFeedsByCategory(category.id).length;
             
-            return Card(
-              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: ListTile(
-                leading: Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: category.color != null 
-                        ? Color(int.parse(category.color!.substring(1, 7), radix: 16) + 0xFF000000)
-                        : Theme.of(context).colorScheme.primary,
-                    borderRadius: BorderRadius.circular(8),
+            return FuturisticCard(
+              onTap: () {
+                // TODO: Navigate to category detail screen
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Category: ${category.name}')),
+                );
+              },
+              child: Row(
+                children: [
+                  Container(
+                    width: 60,
+                    height: 60,
+                    decoration: BoxDecoration(
+                      color: category.color != null 
+                          ? Color(int.parse(category.color!.substring(1, 7), radix: 16) + 0xFF000000)
+                          : Theme.of(context).colorScheme.primary,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: (category.color != null 
+                              ? Color(int.parse(category.color!.substring(1, 7), radix: 16) + 0xFF000000)
+                              : Theme.of(context).colorScheme.primary).withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(Icons.category_rounded, color: Colors.white, size: 28),
                   ),
-                  child: const Icon(Icons.category, color: Colors.white),
-                ),
-                title: Text(category.name),
-                subtitle: Text(category.description),
-                trailing: Text('$feedCount feeds'),
-                onTap: () {
-                  // TODO: Navigate to category detail screen
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Category: ${category.name}')),
-                  );
-                },
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          category.name,
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          category.description,
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '$feedCount feeds',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             );
           },
@@ -328,52 +466,122 @@ class SavedTab extends StatelessWidget {
         final savedArticles = articleProvider.savedArticles;
         
         if (savedArticles.isEmpty) {
-          return const Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.bookmark_border, size: 64, color: Colors.grey),
-                SizedBox(height: 16),
-                Text(
-                  'No saved articles',
-                  style: TextStyle(fontSize: 18, color: Colors.grey),
-                ),
-                SizedBox(height: 8),
-                Text(
-                  'Save articles to read them later',
-                  style: TextStyle(color: Colors.grey),
-                ),
-              ],
+          return Center(
+            child: FuturisticCard(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.bookmark_border_rounded,
+                    size: 64,
+                    color: Theme.of(context).colorScheme.primary.withOpacity(0.6),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No saved articles',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Save articles to read them later',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                    ),
+                  ),
+                ],
+              ),
             ),
           );
         }
 
         return ListView.builder(
+          padding: const EdgeInsets.only(bottom: 100), // Account for bottom nav
           itemCount: savedArticles.length,
           itemBuilder: (context, index) {
             final article = savedArticles[index];
-            return Card(
-              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: ListTile(
-                title: Text(article.title),
-                subtitle: Text(article.description),
-                trailing: IconButton(
-                  icon: const Icon(Icons.bookmark, color: Colors.orange),
-                  onPressed: () => articleProvider.toggleSaved(article.id),
-                ),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => ArticleReadingScreen(article: article),
+            return FuturisticCard(
+              onTap: () => _openArticle(context, article),
+              showGlow: true,
+              glowColor: Colors.orange,
+              child: Row(
+                children: [
+                  Container(
+                    width: 60,
+                    height: 60,
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: Colors.orange.withOpacity(0.4),
+                        width: 2,
+                      ),
                     ),
-                  );
-                },
+                    child: const Icon(
+                      Icons.bookmark_rounded,
+                      color: Colors.orange,
+                      size: 28,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          article.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          article.description,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.access_time_rounded,
+                              size: 16,
+                              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Saved • ${article.timeAgo}',
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.bookmark_rounded, color: Colors.orange),
+                    onPressed: () => articleProvider.toggleSaved(article.id),
+                  ),
+                ],
               ),
             );
           },
         );
       },
+    );
+  }
+  
+  void _openArticle(BuildContext context, article) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ArticleReadingScreen(article: article),
+      ),
     );
   }
 }
@@ -385,44 +593,206 @@ class SettingsTab extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<SettingsProvider>(
       builder: (context, settings, child) {
-        return ListView(
-          children: [
-            Card(
-              margin: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  ListTile(
-                    leading: const Icon(Icons.palette),
-                    title: const Text('Theme'),
-                    subtitle: Text(_getThemeText(settings.themeMode)),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () => _showThemeDialog(context, settings),
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.text_fields),
-                    title: const Text('Font Size'),
-                    subtitle: Text('${settings.fontSize.toInt()}px'),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () => _showFontSizeDialog(context, settings),
-                  ),
-                  SwitchListTile(
-                    secondary: const Icon(Icons.refresh),
-                    title: const Text('Auto Refresh'),
-                    subtitle: const Text('Automatically refresh feeds'),
-                    value: settings.autoRefresh,
-                    onChanged: (value) => settings.setAutoRefresh(value),
-                  ),
-                  SwitchListTile(
-                    secondary: const Icon(Icons.image),
-                    title: const Text('Load Images'),
-                    subtitle: const Text('Show images in articles'),
-                    value: settings.imageLoadingEnabled,
-                    onChanged: (value) => settings.setImageLoadingEnabled(value),
-                  ),
-                ],
+        return SingleChildScrollView(
+          padding: const EdgeInsets.only(bottom: 100), // Account for bottom nav
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 20),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Text(
+                  'Appearance',
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 16),
+              
+              // Theme setting
+              FuturisticCard(
+                onTap: () => _showThemeDialog(context, settings),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        Icons.palette_rounded,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Theme',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            _getThemeText(settings.themeMode),
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                    ),
+                  ],
+                ),
+              ),
+              
+              // Font size setting
+              FuturisticCard(
+                onTap: () => _showFontSizeDialog(context, settings),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.secondary.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        Icons.text_fields_rounded,
+                        color: Theme.of(context).colorScheme.secondary,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Font Size',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${settings.fontSize.toInt()}px',
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                    ),
+                  ],
+                ),
+              ),
+              
+              const SizedBox(height: 32),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Text(
+                  'Features',
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
+              ),
+              const SizedBox(height: 16),
+              
+              // Auto refresh toggle
+              FuturisticCard(
+                child: Row(
+                  children: [
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.tertiary.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        Icons.refresh_rounded,
+                        color: Theme.of(context).colorScheme.tertiary,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Auto Refresh',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Automatically refresh feeds',
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Switch(
+                      value: settings.autoRefresh,
+                      onChanged: (value) => settings.setAutoRefresh(value),
+                    ),
+                  ],
+                ),
+              ),
+              
+              // Image loading toggle
+              FuturisticCard(
+                child: Row(
+                  children: [
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: Colors.purple.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.image_rounded,
+                        color: Colors.purple,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Load Images',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Show images in articles',
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Switch(
+                      value: settings.imageLoadingEnabled,
+                      onChanged: (value) => settings.setImageLoadingEnabled(value),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         );
       },
     );
@@ -442,44 +812,109 @@ class SettingsTab extends StatelessWidget {
   void _showThemeDialog(BuildContext context, SettingsProvider settings) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Select Theme'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: GlassContainer(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Select Theme',
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+              const SizedBox(height: 24),
+              _buildThemeOption(
+                context,
+                'Light',
+                ThemeMode.light,
+                settings.themeMode,
+                Icons.light_mode_rounded,
+                () {
+                  settings.setThemeMode(ThemeMode.light);
+                  Navigator.of(context).pop();
+                },
+              ),
+              const SizedBox(height: 12),
+              _buildThemeOption(
+                context,
+                'Dark',
+                ThemeMode.dark,
+                settings.themeMode,
+                Icons.dark_mode_rounded,
+                () {
+                  settings.setThemeMode(ThemeMode.dark);
+                  Navigator.of(context).pop();
+                },
+              ),
+              const SizedBox(height: 12),
+              _buildThemeOption(
+                context,
+                'System',
+                ThemeMode.system,
+                settings.themeMode,
+                Icons.settings_system_daydream_rounded,
+                () {
+                  settings.setThemeMode(ThemeMode.system);
+                  Navigator.of(context).pop();
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildThemeOption(
+    BuildContext context,
+    String title,
+    ThemeMode value,
+    ThemeMode groupValue,
+    IconData icon,
+    VoidCallback onTap,
+  ) {
+    final isSelected = value == groupValue;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? Theme.of(context).colorScheme.primary.withOpacity(0.2)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected
+                ? Theme.of(context).colorScheme.primary
+                : Colors.transparent,
+            width: 2,
+          ),
+        ),
+        child: Row(
           children: [
-            RadioListTile<ThemeMode>(
-              title: const Text('Light'),
-              value: ThemeMode.light,
-              groupValue: settings.themeMode,
-              onChanged: (value) {
-                if (value != null) {
-                  settings.setThemeMode(value);
-                  Navigator.of(context).pop();
-                }
-              },
+            Icon(
+              icon,
+              color: isSelected
+                  ? Theme.of(context).colorScheme.primary
+                  : Theme.of(context).colorScheme.onSurface,
             ),
-            RadioListTile<ThemeMode>(
-              title: const Text('Dark'),
-              value: ThemeMode.dark,
-              groupValue: settings.themeMode,
-              onChanged: (value) {
-                if (value != null) {
-                  settings.setThemeMode(value);
-                  Navigator.of(context).pop();
-                }
-              },
+            const SizedBox(width: 16),
+            Text(
+              title,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: isSelected
+                    ? Theme.of(context).colorScheme.primary
+                    : Theme.of(context).colorScheme.onSurface,
+              ),
             ),
-            RadioListTile<ThemeMode>(
-              title: const Text('System'),
-              value: ThemeMode.system,
-              groupValue: settings.themeMode,
-              onChanged: (value) {
-                if (value != null) {
-                  settings.setThemeMode(value);
-                  Navigator.of(context).pop();
-                }
-              },
-            ),
+            const Spacer(),
+            if (isSelected)
+              Icon(
+                Icons.check_circle_rounded,
+                color: Theme.of(context).colorScheme.primary,
+              ),
           ],
         ),
       ),
@@ -489,23 +924,118 @@ class SettingsTab extends StatelessWidget {
   void _showFontSizeDialog(BuildContext context, SettingsProvider settings) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Select Font Size'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: settings.availableFontSizes.map((entry) {
-            return RadioListTile<double>(
-              title: Text(entry.value),
-              value: entry.key,
-              groupValue: settings.fontSize,
-              onChanged: (value) {
-                if (value != null) {
-                  settings.setFontSize(value);
-                  Navigator.of(context).pop();
-                }
-              },
-            );
-          }).toList(),
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: GlassContainer(
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 300),
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Title
+                Text(
+                  'Select Font Size',
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    color: Theme.of(context).colorScheme.primary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                
+                // Font size options with better spacing
+                ...settings.availableFontSizes.map((entry) {
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () {
+                        settings.setFontSize(entry.key);
+                        Navigator.of(context).pop();
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: settings.fontSize == entry.key
+                                ? Theme.of(context).colorScheme.primary
+                                : Theme.of(context).colorScheme.outline.withOpacity(0.3),
+                            width: settings.fontSize == entry.key ? 2 : 1,
+                          ),
+                          color: settings.fontSize == entry.key
+                              ? Theme.of(context).colorScheme.primary.withOpacity(0.1)
+                              : Colors.transparent,
+                        ),
+                        child: Row(
+                          children: [
+                            // Radio indicator
+                            Container(
+                              width: 20,
+                              height: 20,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: settings.fontSize == entry.key
+                                      ? Theme.of(context).colorScheme.primary
+                                      : Theme.of(context).colorScheme.outline.withOpacity(0.5),
+                                  width: 2,
+                                ),
+                                color: settings.fontSize == entry.key
+                                    ? Theme.of(context).colorScheme.primary
+                                    : Colors.transparent,
+                              ),
+                              child: settings.fontSize == entry.key
+                                  ? Icon(
+                                      Icons.check,
+                                      size: 14,
+                                      color: Theme.of(context).colorScheme.onPrimary,
+                                    )
+                                  : null,
+                            ),
+                            const SizedBox(width: 16),
+                            
+                            // Font size label
+                            Expanded(
+                              child: Text(
+                                entry.value,
+                                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                  color: settings.fontSize == entry.key
+                                      ? Theme.of(context).colorScheme.primary
+                                      : Theme.of(context).colorScheme.onSurface,
+                                  fontWeight: settings.fontSize == entry.key
+                                      ? FontWeight.w600
+                                      : FontWeight.normal,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+                
+                const SizedBox(height: 16),
+                
+                // Close button
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: Text(
+                      'Close',
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

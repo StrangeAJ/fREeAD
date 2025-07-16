@@ -7,6 +7,8 @@ import 'package:flutter_html/flutter_html.dart';
 import '../models/article.dart';
 import '../providers/article_provider.dart';
 import '../providers/settings_provider.dart';
+import '../widgets/futuristic_buttons.dart';
+import '../widgets/futuristic_widgets.dart';
 
 class ArticleReadingScreen extends StatefulWidget {
   final Article article;
@@ -498,28 +500,28 @@ class _ArticleReadingScreenState extends State<ArticleReadingScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    ElevatedButton.icon(
+                    FuturisticGlowButton(
                       onPressed: isLoadingFull ? null : () {
                         setState(() {
                           _showFullContent = !_showFullContent;
                         });
                       },
-                      icon: Icon(_showFullContent ? Icons.description : Icons.article),
-                      label: Text(_showFullContent ? 'Show Original' : 'Show Full Article'),
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                      ),
+                      icon: _showFullContent ? Icons.description_rounded : Icons.article_rounded,
+                      label: _showFullContent ? 'Show Original' : 'Show Full Article',
+                      isToggled: _showFullContent,
+                      showGlow: true,
+                      glowRadius: 25,
+                      glowSpread: 3,
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      child: Text(_showFullContent ? 'Show Original' : 'Show Full Article'),
                     ),
                     const SizedBox(width: 12),
-                    ElevatedButton.icon(
+                    FuturisticSecondaryButton(
                       onPressed: () => _launchOriginalArticle(),
-                      icon: const Icon(Icons.web),
-                      label: const Text('Open in Browser'),
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                        backgroundColor: Theme.of(context).colorScheme.secondary,
-                        foregroundColor: Theme.of(context).colorScheme.onSecondary,
-                      ),
+                      icon: Icons.web_rounded,
+                      label: 'Open in Browser',
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      child: const Text('Open in Browser'),
                     ),
                   ],
                 ),
@@ -528,7 +530,7 @@ class _ArticleReadingScreenState extends State<ArticleReadingScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    ElevatedButton.icon(
+                    FuturisticGlowButton(
                       onPressed: isLoadingFull ? null : () async {
                         final success = await articleProvider.loadFullArticle(widget.article.id);
                         if (success) {
@@ -549,46 +551,26 @@ class _ArticleReadingScreenState extends State<ArticleReadingScreen> {
                           }
                         }
                       },
-                      icon: isLoadingFull 
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.article),
-                      label: Text(isLoadingFull ? 'Loading...' : 'Read Full Article'),
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                      ),
+                      icon: Icons.article_rounded,
+                      label: isLoadingFull ? 'Loading...' : 'Read Full Article',
+                      isLoading: isLoadingFull,
+                      showGlow: true,
+                      glowRadius: 30,
+                      glowSpread: 4,
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      child: Text(isLoadingFull ? 'Loading...' : 'Read Full Article'),
                     ),
                     const SizedBox(width: 12),
-                    ElevatedButton.icon(
+                    FuturisticSecondaryButton(
                       onPressed: () => _launchOriginalArticle(),
-                      icon: const Icon(Icons.web),
-                      label: const Text('Open in Browser'),
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                        backgroundColor: Theme.of(context).colorScheme.secondary,
-                        foregroundColor: Theme.of(context).colorScheme.onSecondary,
-                      ),
+                      icon: Icons.web_rounded,
+                      label: 'Open in Browser',
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      child: const Text('Open in Browser'),
                     ),
                   ],
                 ),
               ],
-              
-              const SizedBox(height: 8),
-              
-              // URL display
-              if (widget.article.url.isNotEmpty)
-                SelectableText(
-                  widget.article.url,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.primary,
-                    decoration: TextDecoration.underline,
-                  ),
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                ),
             ],
           ),
         );
@@ -600,9 +582,7 @@ class _ArticleReadingScreenState extends State<ArticleReadingScreen> {
     return Column(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
-        FloatingActionButton(
-          heroTag: "scroll_to_top",
-          mini: true,
+        FuturisticFAB(
           onPressed: () {
             _scrollController.animateTo(
               0,
@@ -610,13 +590,16 @@ class _ArticleReadingScreenState extends State<ArticleReadingScreen> {
               curve: Curves.easeInOut,
             );
           },
-          child: const Icon(Icons.keyboard_arrow_up),
+          icon: Icons.keyboard_arrow_up_rounded,
+          tooltip: 'Scroll to top',
+          showPulse: false,
         ),
         const SizedBox(height: 8),
-        FloatingActionButton(
-          heroTag: "share",
+        FuturisticFAB(
           onPressed: () => _shareArticle(),
-          child: const Icon(Icons.share),
+          icon: Icons.share_rounded,
+          tooltip: 'Share article',
+          showPulse: true,
         ),
       ],
     );
