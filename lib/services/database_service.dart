@@ -192,6 +192,20 @@ class DatabaseService {
     return List.generate(maps.length, (i) => RSSFeed.fromJson(maps[i]));
   }
 
+  // Insert multiple articles in a batch for performance, ignoring duplicates
+  Future<void> insertArticlesBatch(List<Article> articles) async {
+    final db = await database;
+    final batch = db.batch();
+    for (final article in articles) {
+      batch.insert(
+        'articles',
+        article.toJson(),
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+    }
+    await batch.commit(noResult: true);
+  }
+
   Future<List<RSSFeed>> getFeedsByCategory(String categoryId) async {
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.query(
@@ -328,15 +342,6 @@ class DatabaseService {
     return await db.insert('articles', article.toJson());
   }
 
-  Future<int> insertArticles(List<Article> articles) async {
-    final db = await database;
-    final batch = db.batch();
-    for (final article in articles) {
-      batch.insert('articles', article.toJson());
-    }
-    final results = await batch.commit();
-    return results.length;
-  }
 
   Future<int> updateArticle(Article article) async {
     final db = await database;

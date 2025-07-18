@@ -26,9 +26,9 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       extendBody: true,
       extendBodyBehindAppBar: true,
-      backgroundColor: isDark ? const Color(0xFF000000) : const Color(0xFFF5F5F7),
+      backgroundColor: isDark ? const Color.fromARGB(222, 0, 0, 0) : const Color.fromARGB(222, 255, 255, 255),
       appBar: FuturisticAppBar(
-        title: 'FreeAd',
+        title: 'fREeAD',
         actions: [
           IconButton(
             icon: const Icon(Icons.rss_feed_rounded),
@@ -47,14 +47,15 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       body: AnimatedGradientBackground(
         colors: isDark ? [
-          const Color(0xFF000000),
-          const Color(0xFF1C1C1E),
-          const Color(0xFF2C2C2E),
+          const Color.fromARGB(255, 0, 0, 0),
+          const Color.fromARGB(250, 10, 10, 10),
+          const Color.fromARGB(240, 40, 40, 40),
         ] : [
           const Color(0xFFF5F5F7),
-          const Color(0xFFE8E8EA),
-          const Color(0xFFD1D1D6),
+          const Color.fromARGB(255, 205, 205, 205),
+          const Color.fromARGB(255, 190, 190, 190),
         ],
+        duration: const Duration(seconds: 30),
         child: SafeArea(
           child: _buildBody(),
         ),
@@ -152,7 +153,7 @@ class HomeTab extends StatelessWidget {
           return Center(
             child: FuturisticCard(
               showGlow: true,
-              glowColor: Colors.red,
+              glowColor: Colors.yellowAccent,
               padding: const EdgeInsets.all(24),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -188,6 +189,7 @@ class HomeTab extends StatelessWidget {
         if (articles.isEmpty) {
           return Center(
             child: FuturisticCard(
+              glowColor: Colors.redAccent,
               padding: const EdgeInsets.all(32),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -225,6 +227,8 @@ class HomeTab extends StatelessWidget {
               return FuturisticCard(
                 onTap: () => _openArticle(context, article),
                 showGlow: !article.isRead,
+                glowColor: const Color.fromARGB(194, 105, 160, 255),
+                borderColor: article.isRead ? const Color.fromARGB(105, 255, 255, 0) : const Color.fromARGB(255, 195, 105, 255),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -261,7 +265,8 @@ class HomeTab extends StatelessWidget {
                               ),
                             )
                           : Icon(
-                              Icons.article_rounded,
+                              Icons.article_outlined,
+                              size: 40,
                               color: Theme.of(context).colorScheme.onSurfaceVariant,
                             ),
                     ),
@@ -632,7 +637,7 @@ class SettingsTab extends StatelessWidget {
                       width: 48,
                       height: 48,
                       decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+                        color: Theme.of(context).colorScheme.primary.withOpacity(0.4),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Icon(
@@ -828,7 +833,7 @@ class SettingsTab extends StatelessWidget {
     showDialog(
       context: context,
       builder: (context) => Dialog(
-        backgroundColor: Colors.transparent,
+        backgroundColor: Theme.of(context).colorScheme.surface.withAlpha(127),
         child: GlassContainer(
           padding: const EdgeInsets.all(24),
           child: Column(
@@ -897,8 +902,8 @@ class SettingsTab extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: isSelected
-              ? Theme.of(context).colorScheme.primary.withOpacity(0.2)
-              : Colors.transparent,
+              ? Theme.of(context).colorScheme.outline.withAlpha(225)
+              : Theme.of(context).colorScheme.outline.withAlpha(180),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isSelected
@@ -940,7 +945,7 @@ class SettingsTab extends StatelessWidget {
     showDialog(
       context: context,
       builder: (context) => Dialog(
-        backgroundColor: Colors.transparent,
+        backgroundColor: Theme.of(context).colorScheme.surface.withAlpha(127),
         child: GlassContainer(
           child: Container(
             constraints: const BoxConstraints(maxWidth: 300),
@@ -975,13 +980,13 @@ class SettingsTab extends StatelessWidget {
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
                             color: settings.fontSize == entry.key
-                                ? Theme.of(context).colorScheme.primary
-                                : Theme.of(context).colorScheme.outline.withOpacity(0.3),
+                                ? Theme.of(context).colorScheme.outline.withAlpha(180)
+                                : Theme.of(context).colorScheme.outline.withAlpha(225),
                             width: settings.fontSize == entry.key ? 2 : 1,
                           ),
                           color: settings.fontSize == entry.key
-                              ? Theme.of(context).colorScheme.primary.withOpacity(0.1)
-                              : Colors.transparent,
+                              ? Theme.of(context).colorScheme.primary.withAlpha(90)
+                              : Theme.of(context).colorScheme.outline.withAlpha(40),
                         ),
                         child: Row(
                           children: [
@@ -994,7 +999,7 @@ class SettingsTab extends StatelessWidget {
                                 border: Border.all(
                                   color: settings.fontSize == entry.key
                                       ? Theme.of(context).colorScheme.primary
-                                      : Theme.of(context).colorScheme.outline.withOpacity(0.5),
+                                      : Theme.of(context).colorScheme.outline.withOpacity(0.8),
                                   width: 2,
                                 ),
                                 color: settings.fontSize == entry.key

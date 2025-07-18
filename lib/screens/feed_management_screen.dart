@@ -10,6 +10,7 @@ import '../providers/article_provider.dart';
 import '../models/rss_feed.dart';
 import '../services/opml_service.dart';
 import '../widgets/futuristic_widgets.dart';
+import '../widgets/empty_state_widget.dart';
 
 class FeedManagementScreen extends StatefulWidget {
   const FeedManagementScreen({super.key});
@@ -20,6 +21,8 @@ class FeedManagementScreen extends StatefulWidget {
 
 class _FeedManagementScreenState extends State<FeedManagementScreen> {
   String _selectedCategory = 'all';
+  bool _isSelectionMode = false;
+  Set<String> _selectedFeedIds = <String>{};
   
   @override
   void initState() {
@@ -33,26 +36,16 @@ class _FeedManagementScreenState extends State<FeedManagementScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Manage Feeds'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.file_upload),
-            tooltip: 'Import OPML',
-            onPressed: () => _showImportOpmlDialog(),
-          ),
-          IconButton(
-            icon: const Icon(Icons.file_download),
-            tooltip: 'Export OPML',
-            onPressed: () => _exportOpmlFile(),
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () {
-              context.read<FeedProvider>().refreshAllFeeds();
-              context.read<ArticleProvider>().refreshAllArticles();
-            },
-          ),
-        ],
+        title: _isSelectionMode 
+            ? Text('${_selectedFeedIds.length} selected')
+            : const Text('Manage Feeds'),
+        leading: _isSelectionMode
+            ? IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: _exitSelectionMode,
+              )
+            : null,
+        actions: _isSelectionMode ? _buildSelectionActions() : _buildNormalActions(),
       ),
       body: Column(
         children: [
@@ -64,12 +57,261 @@ class _FeedManagementScreenState extends State<FeedManagementScreen> {
           ),
         ],
       ),
-      floatingActionButton: FuturisticFAB(
-        icon: Icons.add,
-        tooltip: 'Add Feed',
-        onPressed: () => _showAddFeedDialog(),
+      floatingActionButton: _isSelectionMode 
+          ? null
+          : FuturisticFAB(
+              icon: Icons.add,
+              tooltip: 'Add Feed',
+              onPressed: () => _showAddFeedDialog(),
+            ),
+    );
+  }
+
+  List<Widget> _buildNormalActions() {
+    return [
+      IconButton(
+        icon: const Icon(Icons.checklist),
+        tooltip: 'Select Multiple',
+        onPressed: _enterSelectionMode,
+      ),
+      IconButton(
+        icon: const Icon(Icons.file_upload),
+        tooltip: 'Import OPML',
+        onPressed: () => _showImportOpmlDialog(),
+      ),
+      IconButton(
+        icon: const Icon(Icons.file_download),
+        tooltip: 'Export OPML',
+        onPressed: () => _exportOpmlFile(),
+      ),
+      IconButton(
+        icon: const Icon(Icons.refresh),
+        onPressed: () {
+          context.read<FeedProvider>().refreshAllFeeds();
+          context.read<ArticleProvider>().refreshAllArticles();
+        },
+      ),
+    ];
+  }
+
+  List<Widget> _buildSelectionActions() {
+    return [
+      if (_selectedFeedIds.isNotEmpty) ...[
+        IconButton(
+          icon: const Icon(Icons.label),
+          tooltip: 'Change Category',
+          onPressed: _showBulkCategoryDialog,
+        ),
+        IconButton(
+          icon: const Icon(Icons.delete),
+          tooltip: 'Delete Selected',
+          onPressed: _showBulkDeleteConfirmation,
+        ),
+      ],
+      IconButton(
+        icon: Icon(_selectedFeedIds.length == _getCurrentFeeds().length 
+            ? Icons.deselect 
+            : Icons.select_all),
+        tooltip: _selectedFeedIds.length == _getCurrentFeeds().length 
+            ? 'Deselect All'
+            : 'Select All',
+        onPressed: _toggleSelectAll,
+      ),
+    ];
+  }
+
+  void _enterSelectionMode() {
+    setState(() {
+      _isSelectionMode = true;
+      _selectedFeedIds.clear();
+    });
+  }
+
+  void _exitSelectionMode() {
+    setState(() {
+      _isSelectionMode = false;
+      _selectedFeedIds.clear();
+    });
+  }
+
+  void _toggleSelectAll() {
+    setState(() {
+      if (_selectedFeedIds.length == _getCurrentFeeds().length) {
+        _selectedFeedIds.clear();
+      } else {
+        _selectedFeedIds.addAll(_getCurrentFeeds().map((feed) => feed.id));
+      }
+    });
+  }
+
+  List<RSSFeed> _getCurrentFeeds() {
+    final feedProvider = context.read<FeedProvider>();
+    return _selectedCategory == 'all' 
+        ? feedProvider.feeds 
+        : feedProvider.getFeedsByCategory(_selectedCategory);
+  }
+
+  void _toggleFeedSelection(String feedId) {
+    setState(() {
+      if (_selectedFeedIds.contains(feedId)) {
+        _selectedFeedIds.remove(feedId);
+      } else {
+        _selectedFeedIds.add(feedId);
+      }
+    });
+  }
+
+  Future<void> _showBulkCategoryDialog() async {
+    if (_selectedFeedIds.isEmpty) return;
+    
+    final feedProvider = context.read<FeedProvider>();
+    String? selectedCategoryId = feedProvider.categories.isNotEmpty 
+        ? feedProvider.categories.first.id 
+        : 'general';
+    
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Change Category for ${_selectedFeedIds.length} feeds'),
+        content: StatefulBuilder(
+          builder: (context, setState) => DropdownButtonFormField<String>(
+            value: selectedCategoryId,
+            decoration: const InputDecoration(
+              labelText: 'Category',
+              border: OutlineInputBorder(),
+            ),
+            items: feedProvider.categories.map((category) {
+              return DropdownMenuItem(
+                value: category.id,
+                child: Text(category.name),
+              );
+            }).toList(),
+            onChanged: (value) {
+              setState(() {
+                selectedCategoryId = value;
+              });
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(selectedCategoryId),
+            child: const Text('Update'),
+          ),
+        ],
       ),
     );
+    
+    if (result != null) {
+      await _updateSelectedFeedsCategory(result);
+    }
+  }
+
+  Future<void> _updateSelectedFeedsCategory(String categoryId) async {
+    final feedProvider = context.read<FeedProvider>();
+    final selectedIds = List<String>.from(_selectedFeedIds);
+    
+    final results = await feedProvider.updateFeedsCategory(selectedIds, categoryId);
+    final successCount = results['success'] ?? 0;
+    final failedCount = results['failed'] ?? 0;
+    
+    _exitSelectionMode();
+    
+    String message;
+    Color backgroundColor;
+    
+    if (failedCount == 0) {
+      message = 'Successfully updated $successCount feeds';
+      backgroundColor = Colors.green;
+    } else if (successCount == 0) {
+      message = 'Failed to update any feeds';
+      backgroundColor = Colors.red;
+    } else {
+      message = 'Updated $successCount feeds, $failedCount failed';
+      backgroundColor = Colors.orange;
+    }
+    
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: backgroundColor,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    }
+  }
+
+  Future<void> _showBulkDeleteConfirmation() async {
+    if (_selectedFeedIds.isEmpty) return;
+    
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Delete ${_selectedFeedIds.length} feeds'),
+        content: Text(
+          'Are you sure you want to delete ${_selectedFeedIds.length} selected feeds?\n\n'
+          'This will also remove all articles from these feeds. This action cannot be undone.'
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete All'),
+          ),
+        ],
+      ),
+    );
+    
+    if (confirmed == true) {
+      await _deleteSelectedFeeds();
+    }
+  }
+
+  Future<void> _deleteSelectedFeeds() async {
+    final feedProvider = context.read<FeedProvider>();
+    final selectedIds = List<String>.from(_selectedFeedIds);
+    
+    final results = await feedProvider.deleteFeeds(selectedIds);
+    final successCount = results['success'] ?? 0;
+    final failedCount = results['failed'] ?? 0;
+    
+    _exitSelectionMode();
+    
+    String message;
+    Color backgroundColor;
+    
+    if (failedCount == 0) {
+      message = 'Successfully deleted $successCount feeds';
+      backgroundColor = Colors.green;
+    } else if (successCount == 0) {
+      message = 'Failed to delete any feeds';
+      backgroundColor = Colors.red;
+    } else {
+      message = 'Deleted $successCount feeds, $failedCount failed';
+      backgroundColor = Colors.orange;
+    }
+    
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: backgroundColor,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+      
+      // Refresh articles after deleting feeds
+      context.read<ArticleProvider>().loadArticles();
+    }
   }
 
   Widget _buildCategoryFilter() {
@@ -92,6 +334,9 @@ class _FeedManagementScreenState extends State<FeedManagementScreen> {
                     onSelected: (selected) {
                       setState(() {
                         _selectedCategory = category;
+                        if (_isSelectionMode) {
+                          _selectedFeedIds.clear();
+                        }
                       });
                     },
                   ),
@@ -149,33 +394,12 @@ class _FeedManagementScreenState extends State<FeedManagementScreen> {
             : feedProvider.getFeedsByCategory(_selectedCategory);
 
         if (feeds.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.rss_feed,
-                  size: 64,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'No feeds found',
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Add your first RSS feed to get started',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton.icon(
-                  onPressed: () => _showAddFeedDialog(),
-                  icon: const Icon(Icons.add),
-                  label: const Text('Add Feed'),
-                ),
-              ],
-            ),
+          return EmptyState(
+            icon: Icons.rss_feed,
+            title: 'No feeds found',
+            subtitle: 'Add your first RSS feed to get started',
+            buttonText: 'Add Feed',
+            onButtonPressed: () => _showAddFeedDialog(),
           );
         }
 
@@ -191,82 +415,109 @@ class _FeedManagementScreenState extends State<FeedManagementScreen> {
   }
 
   Widget _buildFeedCard(RSSFeed feed) {
+    final isSelected = _selectedFeedIds.contains(feed.id);
+    
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        feed.title,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
+      color: isSelected ? Theme.of(context).primaryColor.withOpacity(0.1) : null,
+      child: InkWell(
+        onTap: _isSelectionMode 
+            ? () => _toggleFeedSelection(feed.id)
+            : null,
+        onLongPress: !_isSelectionMode 
+            ? () {
+                setState(() {
+                  _isSelectionMode = true;
+                  _selectedFeedIds.clear();
+                  _selectedFeedIds.add(feed.id);
+                });
+              }
+            : null,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  if (_isSelectionMode) ...[
+                    Checkbox(
+                      value: isSelected,
+                      onChanged: (value) => _toggleFeedSelection(feed.id),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          feed.title,
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        feed.url,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.primary,
+                        const SizedBox(height: 4),
+                        Text(
+                          feed.url,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-                Switch(
-                  value: feed.isActive,
-                  onChanged: (value) => _toggleFeedStatus(feed, value),
+                  if (!_isSelectionMode)
+                    Switch(
+                      value: feed.isActive,
+                      onChanged: (value) => _toggleFeedStatus(feed, value),
+                    ),
+                ],
+              ),
+              if (feed.description.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  feed.description,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
-            ),
-            if (feed.description.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(
-                feed.description,
-                style: Theme.of(context).textTheme.bodyMedium,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Updated: ${_formatDate(feed.lastUpdated ?? DateTime.now())}',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
+              if (!_isSelectionMode) ...[
+                const SizedBox(height: 12),
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    IconButton(
-                      icon: const Icon(Icons.refresh),
-                      onPressed: () => _refreshFeed(feed),
-                      tooltip: 'Refresh Feed',
+                    Text(
+                      'Updated: ${_formatDate(feed.lastUpdated ?? DateTime.now())}',
+                      style: Theme.of(context).textTheme.bodySmall,
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.edit),
-                      onPressed: () => _showEditFeedDialog(feed),
-                      tooltip: 'Edit Feed',
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.delete),
-                      onPressed: () => _showDeleteConfirmation(feed),
-                      tooltip: 'Delete Feed',
+                    Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.refresh),
+                          onPressed: () => _refreshFeed(feed),
+                          tooltip: 'Refresh Feed',
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.edit),
+                          onPressed: () => _showEditFeedDialog(feed),
+                          tooltip: 'Edit Feed',
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete),
+                          onPressed: () => _showDeleteConfirmation(feed),
+                          tooltip: 'Delete Feed',
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ],
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -342,7 +593,7 @@ class _FeedManagementScreenState extends State<FeedManagementScreen> {
     
     showDialog(
       context: context,
-      barrierDismissible: false, // Prevent dismissing during import
+      barrierDismissible: false,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
           title: Text('Import ${feeds.length} feeds'),
@@ -407,7 +658,7 @@ class _FeedManagementScreenState extends State<FeedManagementScreen> {
                   ),
           ),
           actions: isImporting
-              ? [] // Hide buttons during import
+              ? []
               : [
                   TextButton(
                     onPressed: () => Navigator.of(context).pop(),
@@ -498,7 +749,6 @@ class _FeedManagementScreenState extends State<FeedManagementScreen> {
       
       final opmlContent = OpmlService.generateOpml(feeds, categories);
       
-      // Show export options dialog
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
@@ -534,7 +784,6 @@ class _FeedManagementScreenState extends State<FeedManagementScreen> {
 
   Future<void> _shareOpmlFile(String content) async {
     try {
-      // Create a temporary file for sharing
       final tempDir = Directory.systemTemp;
       final fileName = 'freead_feeds_${DateTime.now().millisecondsSinceEpoch}.opml';
       final file = File(path.join(tempDir.path, fileName));
@@ -542,7 +791,6 @@ class _FeedManagementScreenState extends State<FeedManagementScreen> {
       await file.writeAsString(content);
       
       await Share.shareXFiles([XFile(file.path)], text: 'RSS Feeds exported from FreeAd');
-      
     } catch (e) {
       _showErrorDialog('Error sharing file: $e');
     }
@@ -550,7 +798,6 @@ class _FeedManagementScreenState extends State<FeedManagementScreen> {
 
   Future<void> _saveOpmlFile(String content, String fileName) async {
     try {
-      // Convert string content to bytes
       final bytes = utf8.encode(content);
       
       final result = await FilePicker.platform.saveFile(
@@ -624,7 +871,6 @@ class _FeedManagementScreenState extends State<FeedManagementScreen> {
     final success = await context.read<FeedProvider>().refreshFeed(feed.id);
     
     if (success) {
-      // Also refresh articles for this feed
       context.read<ArticleProvider>().refreshFeedArticles(feed.id, feed.url);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -672,7 +918,6 @@ class _FeedManagementScreenState extends State<FeedManagementScreen> {
             backgroundColor: Colors.green,
           ),
         );
-        // Refresh articles after deleting feed
         context.read<ArticleProvider>().loadArticles();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -743,7 +988,6 @@ class _EditFeedDialogState extends State<EditFeedDialog> {
             const SizedBox(height: 16),
             Consumer<FeedProvider>(
               builder: (context, feedProvider, child) {
-                // Ensure selectedCategory exists in the available categories
                 if (!feedProvider.categories.any((cat) => cat.id == _selectedCategory)) {
                   _selectedCategory = feedProvider.categories.isNotEmpty ? feedProvider.categories.first.id : 'general';
                 }

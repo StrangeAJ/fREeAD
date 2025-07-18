@@ -82,6 +82,7 @@ class FuturisticCard extends StatelessWidget {
   final double? elevation;
   final Color? glowColor;
   final bool showGlow;
+  final Color? borderColor;
   
   const FuturisticCard({
     super.key,
@@ -92,6 +93,7 @@ class FuturisticCard extends StatelessWidget {
     this.elevation,
     this.glowColor,
     this.showGlow = false,
+    this.borderColor,
   });
 
   @override
@@ -103,12 +105,16 @@ class FuturisticCard extends StatelessWidget {
       margin: margin ?? const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: borderColor ?? (isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.1)),
+          width: 1,
+        ),
         boxShadow: showGlow ? [
           BoxShadow(
             color: (glowColor ?? theme.colorScheme.primary).withOpacity(0.3),
-            blurRadius: 20,
+            blurRadius: 8,
             spreadRadius: 2,
-            offset: const Offset(0, 4),
+            offset: const Offset(0, 2),
           ),
         ] : null,
       ),
@@ -161,7 +167,7 @@ class _AnimatedGradientBackgroundState extends State<AnimatedGradientBackground>
       vsync: this,
     );
     _animation = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+      CurvedAnimation(parent: _controller, curve: Curves.easeIn),
     );
     _controller.repeat(reverse: true);
   }
@@ -189,6 +195,14 @@ class _AnimatedGradientBackgroundState extends State<AnimatedGradientBackground>
                 1.0,
               ],
             ),
+            // Add Blur
+            boxShadow: [
+              BoxShadow(
+                blurRadius: 20,
+                spreadRadius: 4,
+                offset:  const Offset(0, 4),
+              ),
+            ],
           ),
           child: widget.child,
         );
@@ -226,7 +240,7 @@ class FuturisticFAB extends StatelessWidget {
         shape: BoxShape.circle,
         boxShadow: [
           BoxShadow(
-            color: bgColor.withOpacity(0.4),
+            color: bgColor.withValues(alpha: 0.2),
             blurRadius: 20,
             spreadRadius: 4,
             offset: const Offset(0, 4),
@@ -322,7 +336,7 @@ class FuturisticBottomNav extends StatelessWidget {
       decoration: BoxDecoration(
         boxShadow: [
           BoxShadow(
-            color: isDark ? Colors.black.withOpacity(0.3) : Colors.black.withOpacity(0.1),
+            color: isDark ? Colors.black.withAlpha(60) : Colors.black.withAlpha(60),
             blurRadius: 20,
             offset: const Offset(0, -4),
           ),
@@ -335,7 +349,7 @@ class FuturisticBottomNav extends StatelessWidget {
             decoration: BoxDecoration(
               color: isDark 
                   ? const Color(0x1AFFFFFF) 
-                  : const Color(0x1AFFFFFF),
+                  : const Color.fromARGB(95, 216, 216, 216),
               border: Border(
                 top: BorderSide(
                   color: isDark 
@@ -349,17 +363,18 @@ class FuturisticBottomNav extends StatelessWidget {
               currentIndex: currentIndex,
               onTap: onTap,
               items: items,
-              type: BottomNavigationBarType.fixed,
+              type: BottomNavigationBarType.shifting,
               backgroundColor: Colors.transparent,
               elevation: 0,
-              selectedItemColor: theme.colorScheme.primary,
+              selectedItemColor: theme.colorScheme.secondary,
               unselectedItemColor: isDark 
-                  ? const Color(0xFF8E8E93) 
-                  : const Color(0xFF8E8E93),
+                  ? const Color.fromARGB(255, 180, 180, 180) 
+                  : const Color.fromARGB(255, 60, 60, 60),
               showUnselectedLabels: true,
               selectedLabelStyle: const TextStyle(
-                fontSize: 12,
+                fontSize: 14,
                 fontWeight: FontWeight.w600,
+                letterSpacing: 0.5,
               ),
               unselectedLabelStyle: const TextStyle(
                 fontSize: 12,
@@ -399,7 +414,8 @@ class FuturisticAppBar extends StatelessWidget implements PreferredSizeWidget {
     
     return ClipRRect(
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        enabled: true,
+        filter: ImageFilter.blur(sigmaX: 90, sigmaY: 90),
         child: AppBar(
           title: title != null ? Text(title!) : null,
           actions: actions,
@@ -408,10 +424,10 @@ class FuturisticAppBar extends StatelessWidget implements PreferredSizeWidget {
           backgroundColor: backgroundColor ?? Colors.transparent,
           foregroundColor: foregroundColor ?? (isDark ? Colors.white : Colors.black),
           elevation: 0,
-          scrolledUnderElevation: 0,
+          scrolledUnderElevation: 1,
           titleTextStyle: TextStyle(
             fontSize: 28,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w600,
             letterSpacing: -0.6,
             color: foregroundColor ?? (isDark ? Colors.white : Colors.black),
           ),

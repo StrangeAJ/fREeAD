@@ -161,13 +161,8 @@ class ArticleProvider with ChangeNotifier {
     try {
       final newArticles = await _rssService.parseRSSFeed(feedUrl, feedId);
       
-      // Insert new articles
-      for (final article in newArticles) {
-        final existingArticle = await _databaseService.getArticleById(article.id);
-        if (existingArticle == null) {
-          await _databaseService.insertArticle(article);
-        }
-      }
+      // Batch insert new articles, ignoring duplicates for performance
+      await _databaseService.insertArticlesBatch(newArticles);
       
       // Reload articles
       await loadArticles();
@@ -223,54 +218,40 @@ class ArticleProvider with ChangeNotifier {
         return;
       }
 
-      // Get all feeds from database
-      final feeds = await _databaseService.getAllFeeds();
-      
-      print('Found ${feeds.length} feeds in database');
-      
-      // If no feeds in database, add some default ones
+      // Get all feeds from database and ensure defaults
+      var feeds = await _databaseService.getAllFeeds();
       if (feeds.isEmpty) {
-        print('No feeds found, adding default feeds...');
+        print('No feeds found, initializing default feeds...');
         await _addDefaultFeeds();
+        feeds = await _databaseService.getAllFeeds();
       }
-      
-      // Get updated feeds list
-      final updatedFeeds = await _databaseService.getAllFeeds();
-      
-      List<Article> newArticles = [];
-      
-      for (final feed in updatedFeeds) {
-        if (feed.isActive) {
+      // Filter active feeds
+      final activeFeeds = feeds.where((f) => f.isActive).toList();
+      // Fetch RSS feeds in parallel
+      final parseFutures = activeFeeds.map((feed) async {
+        try {
           print('Refreshing feed: ${feed.title} (${feed.url})');
-          try {
-            final articles = await _rssService.parseRSSFeed(feed.url, feed.id);
-            print('Got ${articles.length} articles from ${feed.title}');
-            
-            // Save articles to database
-            for (final article in articles) {
-              try {
-                await _databaseService.insertArticle(article);
-              } catch (e) {
-                // Article might already exist, that's ok
-                print('Article already exists: ${article.title}');
-              }
-            }
-            
-            newArticles.addAll(articles);
-          } catch (e) {
-            print('Error refreshing feed ${feed.title}: $e');
-          }
+          final articles = await _rssService.parseRSSFeed(feed.url, feed.id);
+          print('Got ${articles.length} articles from ${feed.title}');
+          return articles;
+        } catch (e) {
+          print('Error refreshing feed ${feed.title}: $e');
+          return <Article>[];
         }
-      }
-      
-      // Load all articles from database
+      }).toList();
+      final feedArticles = await Future.wait(parseFutures);
+      // Combine and sort articles
+      final newArticles = feedArticles.expand((list) => list).toList();
+      newArticles.sort((a, b) => b.publishedDate.compareTo(a.publishedDate));
+      // Batch insert into database ignoring duplicates
+      await _databaseService.insertArticlesBatch(newArticles);
+      // Reload stored articles
       _articles = await _databaseService.getAllArticles();
       _savedArticles = await _databaseService.getSavedArticles();
       _starredArticles = await _databaseService.getStarredArticles();
-      
       print('Total articles loaded: ${_articles.length}');
-      
       _error = null;
+      notifyListeners();
     } catch (e) {
       print('Error in refreshAllArticles: $e');
       _error = 'Failed to refresh all articles: $e';

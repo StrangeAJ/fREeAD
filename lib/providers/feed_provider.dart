@@ -170,6 +170,70 @@ class FeedProvider with ChangeNotifier {
     }
   }
 
+  // Delete multiple feeds
+  Future<Map<String, int>> deleteFeeds(List<String> feedIds) async {
+    _setLoading(true);
+    int successCount = 0;
+    int failedCount = 0;
+    
+    try {
+      for (final feedId in feedIds) {
+        try {
+          await _databaseService.deleteFeed(feedId);
+          _feeds.removeWhere((feed) => feed.id == feedId);
+          successCount++;
+        } catch (e) {
+          failedCount++;
+          print('Failed to delete feed $feedId: $e');
+        }
+      }
+      
+      _error = null;
+      notifyListeners();
+      return {'success': successCount, 'failed': failedCount};
+    } catch (e) {
+      _error = 'Failed to delete feeds: $e';
+      return {'success': successCount, 'failed': failedCount};
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  // Update category for multiple feeds
+  Future<Map<String, int>> updateFeedsCategory(List<String> feedIds, String categoryId) async {
+    _setLoading(true);
+    int successCount = 0;
+    int failedCount = 0;
+    
+    try {
+      for (final feedId in feedIds) {
+        try {
+          final feedIndex = _feeds.indexWhere((f) => f.id == feedId);
+          if (feedIndex != -1) {
+            final updatedFeed = _feeds[feedIndex].copyWith(categoryId: categoryId);
+            await _databaseService.updateFeed(updatedFeed);
+            _feeds[feedIndex] = updatedFeed;
+            successCount++;
+          } else {
+            failedCount++;
+          }
+        } catch (e) {
+          failedCount++;
+          print('Failed to update feed $feedId: $e');
+        }
+      }
+      
+      _error = null;
+      notifyListeners();
+      return {'success': successCount, 'failed': failedCount};
+    } catch (e) {
+      _error = 'Failed to update feeds: $e';
+      return {'success': successCount, 'failed': failedCount};
+    } finally {
+      _setLoading(false);
+    }
+  }
+
   // Refresh feed
   Future<bool> refreshFeed(String feedId) async {
     try {
