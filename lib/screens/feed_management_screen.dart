@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:path/path.dart' as path;
+import 'dart:io';
+import 'dart:convert';
 import '../providers/feed_provider.dart';
 import '../providers/article_provider.dart';
 import '../models/rss_feed.dart';
+import '../services/opml_service.dart';
 import '../widgets/futuristic_widgets.dart';
 
 class FeedManagementScreen extends StatefulWidget {
@@ -29,6 +35,16 @@ class _FeedManagementScreenState extends State<FeedManagementScreen> {
       appBar: AppBar(
         title: const Text('Manage Feeds'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.file_upload),
+            tooltip: 'Import OPML',
+            onPressed: () => _showImportOpmlDialog(),
+          ),
+          IconButton(
+            icon: const Icon(Icons.file_download),
+            tooltip: 'Export OPML',
+            onPressed: () => _exportOpmlFile(),
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () {
@@ -269,6 +285,311 @@ class _FeedManagementScreenState extends State<FeedManagementScreen> {
     } else {
       return 'Just now';
     }
+  }
+
+  Future<void> _showImportOpmlDialog() async {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Import OPML File'),
+        content: const Text('Select an OPML file to import your RSS feeds.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.of(context).pop();
+              await _importOpmlFile();
+            },
+            child: const Text('Select File'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _importOpmlFile() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['opml', 'xml'],
+      );
+
+      if (result != null && result.files.isNotEmpty) {
+        final file = result.files.first;
+        
+        if (file.path != null) {
+          final fileContent = await File(file.path!).readAsString();
+          final feeds = OpmlService.parseOpml(fileContent);
+          
+          if (feeds.isNotEmpty) {
+            await _showImportPreviewDialog(feeds);
+          } else {
+            _showErrorDialog('No feeds found in the OPML file.');
+          }
+        }
+      }
+    } catch (e) {
+      _showErrorDialog('Error importing OPML file: $e');
+    }
+  }
+
+  Future<void> _showImportPreviewDialog(List<RSSFeed> feeds) async {
+    final selectedFeeds = List<bool>.filled(feeds.length, true);
+    bool isImporting = false;
+    
+    showDialog(
+      context: context,
+      barrierDismissible: false, // Prevent dismissing during import
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: Text('Import ${feeds.length} feeds'),
+          content: SizedBox(
+            width: double.maxFinite,
+            height: 400,
+            child: isImporting
+                ? const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        CircularProgressIndicator(),
+                        SizedBox(height: 16),
+                        Text('Importing feeds...'),
+                        SizedBox(height: 8),
+                        Text('Please wait while we add your feeds.',
+                            style: TextStyle(fontSize: 12, color: Colors.grey)),
+                      ],
+                    ),
+                  )
+                : Column(
+                    children: [
+                      Row(
+                        children: [
+                          TextButton(
+                            onPressed: () {
+                              setState(() {
+                                selectedFeeds.fillRange(0, selectedFeeds.length, true);
+                              });
+                            },
+                            child: const Text('Select All'),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              setState(() {
+                                selectedFeeds.fillRange(0, selectedFeeds.length, false);
+                              });
+                            },
+                            child: const Text('Select None'),
+                          ),
+                        ],
+                      ),
+                      Expanded(
+                        child: ListView.builder(
+                          itemCount: feeds.length,
+                          itemBuilder: (context, index) {
+                            final feed = feeds[index];
+                            return CheckboxListTile(
+                              title: Text(feed.title),
+                              subtitle: Text(feed.url),
+                              value: selectedFeeds[index],
+                              onChanged: (value) {
+                                setState(() {
+                                  selectedFeeds[index] = value ?? false;
+                                });
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
+          actions: isImporting
+              ? [] // Hide buttons during import
+              : [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Cancel'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () async {
+                      setState(() {
+                        isImporting = true;
+                      });
+                      
+                      try {
+                        await _importSelectedFeeds(feeds, selectedFeeds);
+                        if (mounted) {
+                          Navigator.of(context).pop();
+                        }
+                      } catch (e) {
+                        setState(() {
+                          isImporting = false;
+                        });
+                        _showErrorDialog('Error importing feeds: $e');
+                      }
+                    },
+                    child: const Text('Import Selected'),
+                  ),
+                ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _importSelectedFeeds(List<RSSFeed> feeds, List<bool> selectedFeeds) async {
+    int importedCount = 0;
+    int failedCount = 0;
+    final feedProvider = context.read<FeedProvider>();
+    
+    for (int i = 0; i < feeds.length; i++) {
+      if (selectedFeeds[i]) {
+        try {
+          final success = await feedProvider.addFeed(feeds[i].url);
+          if (success) {
+            importedCount++;
+          } else {
+            failedCount++;
+          }
+        } catch (e) {
+          failedCount++;
+          print('Failed to import feed ${feeds[i].title}: $e');
+        }
+      }
+    }
+    
+    if (mounted) {
+      String message;
+      Color backgroundColor;
+      
+      if (failedCount == 0) {
+        message = 'Successfully imported $importedCount feeds';
+        backgroundColor = Colors.green;
+      } else if (importedCount == 0) {
+        message = 'Failed to import any feeds';
+        backgroundColor = Colors.red;
+      } else {
+        message = 'Imported $importedCount feeds, $failedCount failed';
+        backgroundColor = Colors.orange;
+      }
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: backgroundColor,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    }
+  }
+
+  Future<void> _exportOpmlFile() async {
+    try {
+      final feedProvider = context.read<FeedProvider>();
+      final feeds = feedProvider.feeds;
+      final categories = feedProvider.categories;
+      
+      if (feeds.isEmpty) {
+        _showErrorDialog('No feeds to export.');
+        return;
+      }
+      
+      final opmlContent = OpmlService.generateOpml(feeds, categories);
+      
+      // Show export options dialog
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Export OPML'),
+          content: const Text('Choose how you want to export your feeds:'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.of(context).pop();
+                await _shareOpmlFile(opmlContent);
+              },
+              child: const Text('Share'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.of(context).pop();
+                await _saveOpmlFile(opmlContent, 'freead_feeds_${DateTime.now().millisecondsSinceEpoch}.opml');
+              },
+              child: const Text('Save File'),
+            ),
+          ],
+        ),
+      );
+      
+    } catch (e) {
+      _showErrorDialog('Error exporting OPML file: $e');
+    }
+  }
+
+  Future<void> _shareOpmlFile(String content) async {
+    try {
+      // Create a temporary file for sharing
+      final tempDir = Directory.systemTemp;
+      final fileName = 'freead_feeds_${DateTime.now().millisecondsSinceEpoch}.opml';
+      final file = File(path.join(tempDir.path, fileName));
+      
+      await file.writeAsString(content);
+      
+      await Share.shareXFiles([XFile(file.path)], text: 'RSS Feeds exported from FreeAd');
+      
+    } catch (e) {
+      _showErrorDialog('Error sharing file: $e');
+    }
+  }
+
+  Future<void> _saveOpmlFile(String content, String fileName) async {
+    try {
+      // Convert string content to bytes
+      final bytes = utf8.encode(content);
+      
+      final result = await FilePicker.platform.saveFile(
+        dialogTitle: 'Save OPML File',
+        fileName: fileName,
+        type: FileType.custom,
+        allowedExtensions: ['opml'],
+        bytes: bytes,
+      );
+      
+      if (result != null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('OPML file exported successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      _showErrorDialog('Error saving file: $e');
+    }
+  }
+
+  void _showErrorDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Error'),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _showAddFeedDialog() async {

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<opml version="1.0">
+  <head>
+    <title>Sample RSS Feeds</title>
+    <dateCreated>2025-07-16T10:00:00Z</dateCreated>
+    <dateModified>2025-07-16T10:00:00Z</dateModified>
+  </head>
+  <body>
+    <outline text="Technology" title="Technology">
+      <outline type="rss" text="TechCrunch" title="TechCrunch" xmlUrl="https://feeds.feedburner.com/TechCrunch" htmlUrl="https://techcrunch.com" description="Technology news" category="Technology"/>
+      <outline type="rss" text="The Verge" title="The Verge" xmlUrl="https://www.theverge.com/rss/index.xml" htmlUrl="https://www.theverge.com" description="Technology and culture news" category="Technology"/>
+    </outline>
+    <outline text="News" title="News">
+      <outline type="rss" text="BBC News" title="BBC News" xmlUrl="http://feeds.bbci.co.uk/news/rss.xml" htmlUrl="https://www.bbc.com/news" description="BBC News feed" category="News"/>
+      <outline type="rss" text="Reuters" title="Reuters" xmlUrl="https://feeds.reuters.com/reuters/topNews" htmlUrl="https://reuters.com" description="Reuters top news" category="News"/>
+    </outline>
+    <outline text="Sports" title="Sports">
+      <outline type="rss" text="ESPN" title="ESPN" xmlUrl="https://www.espn.com/espn/rss/news" htmlUrl="https://www.espn.com" description="ESPN sports news" category="Sports"/>
+    </outline>
+  </body>
+</opml>
