@@ -64,6 +64,15 @@ class FeedProvider with ChangeNotifier {
     return _feeds.where((feed) => feed.categoryId == categoryId).toList();
   }
 
+  // Get feed by ID
+  RSSFeed? getFeedById(String feedId) {
+    try {
+      return _feeds.firstWhere((feed) => feed.id == feedId);
+    } catch (e) {
+      return null;
+    }
+  }
+
   // Add new feed
   Future<bool> addFeed(String url, {String? categoryId}) async {
     _setLoading(true);

@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_html/flutter_html.dart';
 import 'package:provider/provider.dart';
 import '../providers/feed_provider.dart';
 import '../providers/article_provider.dart';
 import '../providers/settings_provider.dart';
 import '../screens/article_reading_screen.dart';
 import '../screens/feed_management_screen.dart';
+import '../screens/category_articles_screen.dart';
 import '../widgets/futuristic_widgets.dart';
 import '../widgets/futuristic_dialogs.dart';
 
@@ -26,7 +28,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       extendBody: true,
       extendBodyBehindAppBar: true,
-      backgroundColor: isDark ? const Color.fromARGB(222, 0, 0, 0) : const Color.fromARGB(222, 255, 255, 255),
+      backgroundColor: Colors.transparent,
       appBar: FuturisticAppBar(
         title: 'fREeAD',
         actions: [
@@ -151,7 +153,10 @@ class HomeTab extends StatelessWidget {
 
         if (articleProvider.error != null) {
           return Center(
-            child: FuturisticCard(
+            child:
+                Flexible(
+                  child:
+                      FuturisticCard(
               showGlow: true,
               glowColor: Colors.yellowAccent,
               padding: const EdgeInsets.all(24),
@@ -182,6 +187,7 @@ class HomeTab extends StatelessWidget {
                 ],
               ),
             ),
+                  ),
           );
         }
 
@@ -217,6 +223,22 @@ class HomeTab extends StatelessWidget {
           );
         }
 
+        // TODO() Function to get Feed Name and Feed Icon URL
+
+
+        // Function to get Feed Name and Feed Icon URL
+        String _getFeedName(String feedId) {
+          final feedProvider = context.read<FeedProvider>();
+          final feed = feedProvider.getFeedById(feedId);
+          return feed?.title ?? 'Unknown Feed';
+        }
+
+        String? _getFeedIconUrl(String feedId) {
+          final feedProvider = context.read<FeedProvider>();
+          final feed = feedProvider.getFeedById(feedId);
+          return feed?.imageUrl;
+        }
+
         return RefreshIndicator(
           onRefresh: () => articleProvider.refreshAllArticles(),
           child: ListView.builder(
@@ -233,43 +255,106 @@ class HomeTab extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Article image
-                    Container(
-                      width: 80,
-                      height: 80,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(16),
-                        color: Theme.of(context).colorScheme.surfaceVariant,
-                      ),
-                      child: article.imageUrl != null
-                          ? ClipRRect(
-                              borderRadius: BorderRadius.circular(16),
-                              child: Image.network(
-                                article.imageUrl!,
-                                width: 80,
-                                height: 80,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return Container(
-                                    width: 80,
-                                    height: 80,
-                                    decoration: BoxDecoration(
-                                      color: Theme.of(context).colorScheme.surfaceVariant,
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
-                                    child: Icon(
-                                      Icons.article_rounded,
-                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                    ),
-                                  );
-                                },
-                              ),
-                            )
-                          : Icon(
-                              Icons.article_outlined,
-                              size: 40,
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    Column(
+                      children: [
+                        Container(
+                          width: 80,
+                          height: 80,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(16),
+                            color: Theme.of(context).colorScheme.surfaceVariant,
+                          ),
+                          child: article.imageUrl != null
+                              ? ClipRRect(
+                            borderRadius: BorderRadius.circular(16),
+                            child:
+                             Expanded(
+                              child:  Image.network(
+                              article.imageUrl!,
+                              width: 80,
+                              errorBuilder: (context, error, stackTrace) {
+                                return
+                                  Container(
+                                  width: 80,
+                                  height: 80,
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context).colorScheme.surfaceVariant,
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  child: Icon(
+                                    Icons.article_rounded,
+                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                  ),
+                                );
+                              },
                             ),
+                             )
+                          )
+                              : Icon(
+                            Icons.article_outlined,
+                            size: 40,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        // Add Feed Icon or Name of Feed Here
+                        const SizedBox(height: 8),
+                        Container(
+                          width: 80,
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                              width: 1,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // Feed icon or RSS icon
+                              _getFeedIconUrl(article.feedId) != null
+                                ? ClipRRect(
+                                    borderRadius: BorderRadius.circular(4),
+                                    child: Image.network(
+                                      _getFeedIconUrl(article.feedId)!,
+                                      width: 12,
+                                      height: 12,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (context, error, stackTrace) {
+                                        return Icon(
+                                          Icons.rss_feed,
+                                          size: 12,
+                                          color: Theme.of(context).colorScheme.primary,
+                                        );
+                                      },
+                                    ),
+                                  )
+                                : Icon(
+                                    Icons.rss_feed,
+                                    size: 12,
+                                    color: Theme.of(context).colorScheme.primary,
+                                  ),
+                              const SizedBox(width: 4),
+                              // Feed name
+                              Expanded(
+                                child: Text(
+                                  _getFeedName(article.feedId),
+                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Theme.of(context).colorScheme.primary,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
+
                     const SizedBox(width: 16),
                     
                     // Article content
@@ -279,7 +364,7 @@ class HomeTab extends StatelessWidget {
                         children: [
                           Text(
                             article.title,
-                            maxLines: 2,
+                            maxLines: 4,
                             overflow: TextOverflow.ellipsis,
                             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                               fontWeight: article.isRead ? FontWeight.w500 : FontWeight.w600,
@@ -296,17 +381,54 @@ class HomeTab extends StatelessWidget {
                           ),
                           const SizedBox(height: 8),
                           Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Icon(
-                                Icons.access_time_rounded,
-                                size: 16,
-                                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                              Flexible(flex: 1,
+                              child :
+                                Row(
+                                    children:[
+                                      Icon(
+                                      Icons.access_time_rounded,
+                                      size: 16,
+                                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                                      ),
+                                      const SizedBox(width: 2),
+                                      Text(
+                                  '${DateTime.now().year == article.publishedDate.year
+                                      ? ''
+                                      : '${article.publishedDate.year.toString().padLeft(4, '0')}-'}'
+                                      '${article.publishedDate.month.toString().padLeft(2, '0')}-'
+                                      '${article.publishedDate.day.toString().padLeft(2, '0')} '
+                                      '${article.publishedDate.hour.toString().padLeft(2, '0')}:'
+                                      '${article.publishedDate.minute.toString().padLeft(2, '0')}',
+                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                                  ),
+                                )
+                                    ]
+                                )
                               ),
-                              const SizedBox(width: 4),
-                              Text(
-                                article.timeAgo,
-                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                              Flexible(flex: 1,
+                                child :
+                                Row(
+                                  children:[
+                                    Icon(
+                                      Icons.person_rounded,
+                                      size: 16,
+                                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                                    ),
+                                    const SizedBox(width: 2),
+                                    Expanded(child:
+                                    Text(
+                                      article.author?.trimLeft() ?? 'Unknown',
+                                      overflow: TextOverflow.ellipsis,
+                                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+
+                                      ),
+                                    ),
+                                    )
+                                  ],
                                 ),
                               ),
                             ],
@@ -403,12 +525,16 @@ class CategoriesTab extends StatelessWidget {
           itemBuilder: (context, index) {
             final category = categories[index];
             final feedCount = feedProvider.getFeedsByCategory(category.id).length;
-            
             return FuturisticCard(
               onTap: () {
-                // TODO: Navigate to category detail screen
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Category: ${category.name}')),
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => CategoryArticlesScreen(
+                      categoryId: category.id,
+                      categoryName: category.name,
+                    ),
+                  ),
                 );
               },
               child: Row(
@@ -612,207 +738,205 @@ class SettingsTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Consumer<SettingsProvider>(
+
       builder: (context, settings, child) {
-        return SingleChildScrollView(
-          padding: const EdgeInsets.only(bottom: 100), // Account for bottom nav
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 20),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Text(
-                  'Appearance',
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 20),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text(
+                'Appearance',
+                style: Theme.of(context).textTheme.headlineSmall,
               ),
-              const SizedBox(height: 16),
-              
-              // Theme setting
-              FuturisticCard(
-                onTap: () => _showThemeDialog(context, settings),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primary.withOpacity(0.4),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(
-                        Icons.palette_rounded,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
+            ),
+            const SizedBox(height: 16),
+
+            // Theme setting
+            FuturisticCard(
+              onTap: () => _showThemeDialog(context, settings),
+              child: Row(
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primary.withOpacity(0.4),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Theme',
-                            style: Theme.of(context).textTheme.titleMedium,
+                    child: Icon(
+                      Icons.palette_rounded,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Theme',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _getThemeText(settings.themeMode),
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            _getThemeText(settings.themeMode),
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                            ),
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                    Icon(
-                      Icons.chevron_right_rounded,
-                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
-                    ),
-                  ],
-                ),
+                  ),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                  ),
+                ],
               ),
-              
-              // Font size setting
-              FuturisticCard(
-                onTap: () => _showFontSizeDialog(context, settings),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.secondary.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(
-                        Icons.text_fields_rounded,
-                        color: Theme.of(context).colorScheme.secondary,
-                      ),
+            ),
+
+            // Font size setting
+            FuturisticCard(
+              onTap: () => _showFontSizeDialog(context, settings),
+              child: Row(
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.secondary.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Font Size',
-                            style: Theme.of(context).textTheme.titleMedium,
+                    child: Icon(
+                      Icons.text_fields_rounded,
+                      color: Theme.of(context).colorScheme.secondary,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Font Size',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${settings.fontSize.toInt()}px',
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '${settings.fontSize.toInt()}px',
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                            ),
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                    Icon(
-                      Icons.chevron_right_rounded,
-                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
-                    ),
-                  ],
-                ),
+                  ),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                  ),
+                ],
               ),
-              
-              const SizedBox(height: 32),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Text(
-                  'Features',
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
+            ),
+
+            const SizedBox(height: 32),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text(
+                'Features',
+                style: Theme.of(context).textTheme.headlineSmall,
               ),
-              const SizedBox(height: 16),
-              
-              // Auto refresh toggle
-              FuturisticCard(
-                child: Row(
-                  children: [
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.tertiary.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(
-                        Icons.refresh_rounded,
-                        color: Theme.of(context).colorScheme.tertiary,
-                      ),
+            ),
+            const SizedBox(height: 16),
+
+            // Auto refresh toggle
+            FuturisticCard(
+              child: Row(
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.tertiary.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Auto Refresh',
-                            style: Theme.of(context).textTheme.titleMedium,
+                    child: Icon(
+                      Icons.refresh_rounded,
+                      color: Theme.of(context).colorScheme.tertiary,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Auto Refresh',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Automatically refresh feeds',
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Automatically refresh feeds',
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                            ),
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                    Switch(
-                      value: settings.autoRefresh,
-                      onChanged: (value) => settings.setAutoRefresh(value),
-                    ),
-                  ],
-                ),
+                  ),
+                  Switch(
+                    value: settings.autoRefresh,
+                    onChanged: (value) => settings.setAutoRefresh(value),
+                  ),
+                ],
               ),
-              
-              // Image loading toggle
-              FuturisticCard(
-                child: Row(
-                  children: [
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: Colors.purple.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(
-                        Icons.image_rounded,
-                        color: Colors.purple,
-                      ),
+            ),
+
+            // Image loading toggle
+            FuturisticCard(
+              child: Row(
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: Colors.purple.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Load Images',
-                            style: Theme.of(context).textTheme.titleMedium,
+                    child: const Icon(
+                      Icons.image_rounded,
+                      color: Colors.purple,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Load Images',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Show images in articles',
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Show images in articles',
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                            ),
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                    Switch(
-                      value: settings.imageLoadingEnabled,
-                      onChanged: (value) => settings.setImageLoadingEnabled(value),
-                    ),
-                  ],
-                ),
+                  ),
+                  Switch(
+                    value: settings.imageLoadingEnabled,
+                    onChanged: (value) => settings.setImageLoadingEnabled(value),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         );
       },
     );

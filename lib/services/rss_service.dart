@@ -190,6 +190,13 @@ class RSSService {
     }
   }
 
+  /// Alias for parseRSSFeed for backward compatibility
+  Future<List<Article>> fetchArticles(String url) async {
+    // Generate a temporary feedId if not provided
+    final feedId = url.hashCode.toString();
+    return await parseRSSFeed(url, feedId);
+  }
+
   /// Parse RSS item to Article
   Article? _parseRSSItem(XmlElement item, String feedId) {
     try {

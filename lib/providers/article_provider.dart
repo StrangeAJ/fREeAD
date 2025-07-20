@@ -125,13 +125,81 @@ class ArticleProvider with ChangeNotifier {
     }
   }
 
+  // Get starred articles
+  Future<List<Article>> getStarredArticles() async {
+    try {
+      return await _databaseService.getStarredArticles();
+    } catch (e) {
+      _error = 'Failed to get starred articles: $e';
+      return [];
+    }
+  }
+
+  // Get saved articles
+  Future<List<Article>> getSavedArticles() async {
+    try {
+      return await _databaseService.getSavedArticles();
+    } catch (e) {
+      _error = 'Failed to get saved articles: $e';
+      return [];
+    }
+  }
+
   // Get unread articles
   Future<List<Article>> getUnreadArticles() async {
     try {
       return await _databaseService.getUnreadArticles();
     } catch (e) {
-      _error = 'Failed to load unread articles: $e';
+      _error = 'Failed to get unread articles: $e';
       return [];
+    }
+  }
+
+  // Get recent articles (within specified days)
+  Future<List<Article>> getRecentArticles(int days) async {
+    try {
+      return await _databaseService.getRecentArticles(days);
+    } catch (e) {
+      _error = 'Failed to get recent articles: $e';
+      return [];
+    }
+  }
+
+  // Get all articles
+  Future<List<Article>> getAllArticles() async {
+    try {
+      return await _databaseService.getAllArticles();
+    } catch (e) {
+      _error = 'Failed to get all articles: $e';
+      return [];
+    }
+  }
+
+  // Refresh specific feed
+  Future<void> refreshFeed(String feedId) async {
+    try {
+      _isLoading = true;
+      notifyListeners();
+
+      // Get the feed details and refresh it
+      final feeds = await _databaseService.getFeeds();
+      final feed = feeds.firstWhere((f) => f.id == feedId);
+
+      // Fetch new articles for this feed
+      final articles = await _rssService.fetchArticles(feed.url);
+
+      // Save new articles to database
+      for (final article in articles) {
+        await _databaseService.saveArticle(article.copyWith(feedId: feedId));
+      }
+
+      // Reload articles
+      await loadArticles();
+    } catch (e) {
+      _error = 'Failed to refresh feed: $e';
+    } finally {
+      _isLoading = false;
+      notifyListeners();
     }
   }
 
@@ -258,6 +326,11 @@ class ArticleProvider with ChangeNotifier {
     } finally {
       _setLoading(false);
     }
+  }
+
+  // Alias for refreshAllArticles for backward compatibility
+  Future<void> refreshArticles() async {
+    return await refreshAllArticles();
   }
 
   // Add default feeds for initial setup
@@ -394,6 +467,11 @@ class ArticleProvider with ChangeNotifier {
       _error = 'Failed to toggle starred status: $e';
       return false;
     }
+  }
+
+  // Alias for toggleStarred for backward compatibility
+  Future<bool> toggleStar(String articleId) async {
+    return await toggleStarred(articleId);
   }
 
   // Search articles

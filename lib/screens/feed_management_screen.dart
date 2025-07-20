@@ -11,6 +11,7 @@ import '../models/rss_feed.dart';
 import '../services/opml_service.dart';
 import '../widgets/futuristic_widgets.dart';
 import '../widgets/empty_state_widget.dart';
+import '../screens/feed_articles_screen.dart';
 
 class FeedManagementScreen extends StatefulWidget {
   const FeedManagementScreen({super.key});
@@ -421,10 +422,20 @@ class _FeedManagementScreenState extends State<FeedManagementScreen> {
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       color: isSelected ? Theme.of(context).primaryColor.withOpacity(0.1) : null,
       child: InkWell(
-        onTap: _isSelectionMode 
+        onTap: _isSelectionMode
             ? () => _toggleFeedSelection(feed.id)
-            : null,
-        onLongPress: !_isSelectionMode 
+            : () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => FeedArticlesScreen(
+                      feedId: feed.id,
+                      feedTitle: feed.title,
+                    ),
+                  ),
+                );
+              },
+        onLongPress: !_isSelectionMode
             ? () {
                 setState(() {
                   _isSelectionMode = true;

@@ -35,7 +35,8 @@ class GlassContainer extends StatelessWidget {
         ? const Color(0x1AFFFFFF) 
         : const Color(0x1AFFFFFF);
     
-    return Container(
+    return
+      Container(
       width: width,
       height: height,
       margin: margin,
@@ -43,7 +44,7 @@ class GlassContainer extends StatelessWidget {
         borderRadius: borderRadius ?? BorderRadius.circular(16),
         boxShadow: shadow != null ? [shadow!] : [
           BoxShadow(
-            color: isDark ? Colors.black.withOpacity(0.3) : Colors.black.withOpacity(0.1),
+            color: isDark ? Colors.black.withValues(alpha: 0.3) : Colors.black.withValues(alpha: 0.1),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -60,8 +61,8 @@ class GlassContainer extends StatelessWidget {
               borderRadius: borderRadius ?? BorderRadius.circular(16),
               border: border ?? Border.all(
                 color: isDark 
-                    ? Colors.white.withOpacity(0.1) 
-                    : Colors.black.withOpacity(0.1),
+                    ? Colors.white.withValues(alpha: 0.1)
+                    : Colors.black.withValues(alpha: 0.1),
                 width: 1,
               ),
             ),
@@ -102,17 +103,17 @@ class FuturisticCard extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
     
     return Container(
-      margin: margin ?? const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      margin: margin ?? const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: borderColor ?? (isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.1)),
+          color: borderColor ?? (isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.1)),
           width: 1,
         ),
         boxShadow: showGlow ? [
           BoxShadow(
-            color: (glowColor ?? theme.colorScheme.primary).withOpacity(0.3),
-            blurRadius: 8,
+            color: (glowColor ?? theme.colorScheme.primary).withValues(alpha: 0.3),
+            blurRadius: 16,
             spreadRadius: 2,
             offset: const Offset(0, 2),
           ),
@@ -122,9 +123,9 @@ class FuturisticCard extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(16),
           child: GlassContainer(
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(16),
             padding: padding ?? const EdgeInsets.all(16),
             color: isDark 
                 ? const Color(0x1AFFFFFF) 
@@ -198,7 +199,7 @@ class _AnimatedGradientBackgroundState extends State<AnimatedGradientBackground>
             // Add Blur
             boxShadow: [
               BoxShadow(
-                blurRadius: 20,
+                blurRadius: 16,
                 spreadRadius: 4,
                 offset:  const Offset(0, 4),
               ),
@@ -318,7 +319,7 @@ class FuturisticBottomNav extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onTap;
   final List<BottomNavigationBarItem> items;
-  
+
   const FuturisticBottomNav({
     super.key,
     required this.currentIndex,
@@ -326,58 +327,82 @@ class FuturisticBottomNav extends StatelessWidget {
     required this.items,
   });
 
+
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    
+
+    final shiftingItems = items.map((item) => BottomNavigationBarItem(
+      icon: item.icon,
+      label: item.label,
+      activeIcon: item.activeIcon,
+      tooltip: item.tooltip,
+      backgroundColor: Colors.transparent, // Required for shifting type
+    )).toList();
+
     return Container(
       height: 90,
       decoration: BoxDecoration(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         boxShadow: [
           BoxShadow(
-            color: isDark ? Colors.black.withAlpha(60) : Colors.black.withAlpha(60),
+            color: isDark
+                ? Colors.black.withOpacity(0.3)
+                : Colors.black.withOpacity(0.15),
             blurRadius: 20,
             offset: const Offset(0, -4),
           ),
         ],
       ),
       child: ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          filter: ImageFilter.blur(sigmaX: 50, sigmaY: 50),
           child: Container(
+            height: 90,
             decoration: BoxDecoration(
-              color: isDark 
-                  ? const Color(0x1AFFFFFF) 
-                  : const Color.fromARGB(95, 216, 216, 216),
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: isDark
+                    ? [
+                        Colors.white.withOpacity(0.15),
+                        Colors.white.withOpacity(0.05),
+                      ]
+                    : [
+                        Colors.white.withOpacity(0.95),
+                        Colors.white.withOpacity(0.80),
+                      ],
+              ),
               border: Border(
                 top: BorderSide(
-                  color: isDark 
-                      ? Colors.white.withOpacity(0.1) 
-                      : Colors.black.withOpacity(0.1),
-                  width: 1,
+                  color: isDark
+                      ? Colors.white.withOpacity(0.2)
+                      : Colors.black.withOpacity(0.2),
+                  width: 1.5,
                 ),
               ),
             ),
             child: BottomNavigationBar(
               currentIndex: currentIndex,
               onTap: onTap,
-              items: items,
+              items: shiftingItems,
               type: BottomNavigationBarType.shifting,
               backgroundColor: Colors.transparent,
-              elevation: 0,
+              elevation: 2,
               selectedItemColor: theme.colorScheme.secondary,
-              unselectedItemColor: isDark 
-                  ? const Color.fromARGB(255, 180, 180, 180) 
-                  : const Color.fromARGB(255, 60, 60, 60),
-              showUnselectedLabels: true,
+              unselectedItemColor:
+                  isDark ? Colors.white.withOpacity(0.6) : Colors.black.withOpacity(0.6),
+              showUnselectedLabels: false,
               selectedLabelStyle: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
                 letterSpacing: 0.5,
               ),
               unselectedLabelStyle: const TextStyle(
-                fontSize: 12,
+                fontSize: 08,
                 fontWeight: FontWeight.w400,
               ),
             ),
@@ -415,21 +440,49 @@ class FuturisticAppBar extends StatelessWidget implements PreferredSizeWidget {
     return ClipRRect(
       child: BackdropFilter(
         enabled: true,
-        filter: ImageFilter.blur(sigmaX: 90, sigmaY: 90),
-        child: AppBar(
-          title: title != null ? Text(title!) : null,
-          actions: actions,
-          leading: leading,
-          centerTitle: centerTitle,
-          backgroundColor: backgroundColor ?? Colors.transparent,
-          foregroundColor: foregroundColor ?? (isDark ? Colors.white : Colors.black),
-          elevation: 0,
-          scrolledUnderElevation: 1,
-          titleTextStyle: TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.w600,
-            letterSpacing: -0.6,
-            color: foregroundColor ?? (isDark ? Colors.white : Colors.black),
+        filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25), // Maximum blur
+        child: Container(
+          decoration: BoxDecoration(
+            // Very pronounced glass effect - almost opaque for testing
+            color: backgroundColor ?? (isDark
+                ? const Color(0x10FFFFFF) // Much more visible glass effect
+                : const Color(0x10000000)),
+            border: Border(
+              bottom: BorderSide(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.1) // Very visible border
+                    : Colors.black.withValues(alpha: 0.1),
+                width: 3, // Much thicker border
+              ),
+            ),
+            // Add gradient effect
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: isDark ? [
+                const Color(0x15FFFFFF),
+                const Color(0x10FFFFFF),
+              ] : [
+                const Color(0x15000000),
+                const Color(0x10000000),
+              ],
+            ),
+          ),
+          child: AppBar(
+            title: title != null ? Text(title!) : null,
+            actions: actions,
+            leading: leading,
+            centerTitle: centerTitle,
+            backgroundColor: Colors.transparent,
+            foregroundColor: foregroundColor ?? (isDark ? Colors.white : Colors.black),
+            elevation: 0,
+            scrolledUnderElevation: 1,
+            titleTextStyle: TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.w600,
+              letterSpacing: -0.6,
+              color: foregroundColor ?? (isDark ? Colors.white : Colors.black),
+            ),
           ),
         ),
       ),

@@ -192,6 +192,11 @@ class DatabaseService {
     return List.generate(maps.length, (i) => RSSFeed.fromJson(maps[i]));
   }
 
+  // Alias for getAllFeeds for backward compatibility
+  Future<List<RSSFeed>> getFeeds() async {
+    return getAllFeeds();
+  }
+
   // Insert multiple articles in a batch for performance, ignoring duplicates
   Future<void> insertArticlesBatch(List<Article> articles) async {
     final db = await database;
@@ -275,6 +280,68 @@ class DatabaseService {
     return List.generate(maps.length, (i) => Article.fromJson(maps[i]));
   }
 
+  // Search operations
+  Future<List<Article>> searchArticles(String query) async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'articles',
+      where: 'title LIKE ? OR description LIKE ? OR content LIKE ?',
+      whereArgs: ['%$query%', '%$query%', '%$query%'],
+      orderBy: 'publishedDate DESC',
+    );
+    return List.generate(maps.length, (i) => Article.fromJson(maps[i]));
+  }
+
+  // Get starred articles
+  Future<List<Article>> getStarredArticles() async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'articles',
+      where: 'isStarred = ?',
+      whereArgs: [1],
+      orderBy: 'publishedDate DESC',
+    );
+    return List.generate(maps.length, (i) => Article.fromJson(maps[i]));
+  }
+
+  // Get saved articles
+  Future<List<Article>> getSavedArticles() async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'articles',
+      where: 'isSaved = ?',
+      whereArgs: [1],
+      orderBy: 'publishedDate DESC',
+    );
+    return List.generate(maps.length, (i) => Article.fromJson(maps[i]));
+  }
+
+  // Get unread articles
+  Future<List<Article>> getUnreadArticles() async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'articles',
+      where: 'isRead = ?',
+      whereArgs: [0],
+      orderBy: 'publishedDate DESC',
+    );
+    return List.generate(maps.length, (i) => Article.fromJson(maps[i]));
+  }
+
+  // Get recent articles (within specified days)
+  Future<List<Article>> getRecentArticles(int days) async {
+    final db = await database;
+    final cutoffDate = DateTime.now().subtract(Duration(days: days));
+    final List<Map<String, dynamic>> maps = await db.query(
+      'articles',
+      where: 'publishedDate >= ?',
+      whereArgs: [cutoffDate.toIso8601String()],
+      orderBy: 'publishedDate DESC',
+    );
+    return List.generate(maps.length, (i) => Article.fromJson(maps[i]));
+  }
+
+  // Get articles by feed
   Future<List<Article>> getArticlesByFeed(String feedId) async {
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.query(
@@ -286,42 +353,13 @@ class DatabaseService {
     return List.generate(maps.length, (i) => Article.fromJson(maps[i]));
   }
 
+  // Get articles by category
   Future<List<Article>> getArticlesByCategory(String categoryId) async {
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.query(
       'articles',
       where: 'categoryId = ?',
       whereArgs: [categoryId],
-      orderBy: 'publishedDate DESC',
-    );
-    return List.generate(maps.length, (i) => Article.fromJson(maps[i]));
-  }
-
-  Future<List<Article>> getUnreadArticles() async {
-    final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query(
-      'articles',
-      where: 'isRead = 0',
-      orderBy: 'publishedDate DESC',
-    );
-    return List.generate(maps.length, (i) => Article.fromJson(maps[i]));
-  }
-
-  Future<List<Article>> getSavedArticles() async {
-    final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query(
-      'articles',
-      where: 'isSaved = 1',
-      orderBy: 'publishedDate DESC',
-    );
-    return List.generate(maps.length, (i) => Article.fromJson(maps[i]));
-  }
-
-  Future<List<Article>> getStarredArticles() async {
-    final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query(
-      'articles',
-      where: 'isStarred = 1',
       orderBy: 'publishedDate DESC',
     );
     return List.generate(maps.length, (i) => Article.fromJson(maps[i]));
@@ -342,6 +380,10 @@ class DatabaseService {
     return await db.insert('articles', article.toJson());
   }
 
+  // Alias for insertArticle for backward compatibility
+  Future<int> saveArticle(Article article) async {
+    return await insertArticle(article);
+  }
 
   Future<int> updateArticle(Article article) async {
     final db = await database;
@@ -396,18 +438,6 @@ class DatabaseService {
       where: 'publishedDate < ? AND isSaved = 0 AND isStarred = 0',
       whereArgs: [cutoffDate.toIso8601String()],
     );
-  }
-
-  // Search operations
-  Future<List<Article>> searchArticles(String query) async {
-    final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query(
-      'articles',
-      where: 'title LIKE ? OR description LIKE ? OR content LIKE ?',
-      whereArgs: ['%$query%', '%$query%', '%$query%'],
-      orderBy: 'publishedDate DESC',
-    );
-    return List.generate(maps.length, (i) => Article.fromJson(maps[i]));
   }
 
   // Statistics
