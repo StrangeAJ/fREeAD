@@ -523,10 +523,30 @@ class ArticleProvider with ChangeNotifier {
   }
 
   // Get article by ID
-  Article? getArticleById(String articleId) {
+  Article? getArticleById(String id) {
     try {
-      return _articles.firstWhere((a) => a.id == articleId);
+      return _articles.firstWhere((article) => article.id == id);
     } catch (e) {
+      return null;
+    }
+  }
+
+  // Refresh a specific article from database
+  Future<Article?> refreshArticle(String articleId) async {
+    try {
+      final updatedArticle = await _databaseService.getArticleById(articleId);
+      if (updatedArticle != null) {
+        // Update the article in the current list
+        final index = _articles.indexWhere((article) => article.id == articleId);
+        if (index != -1) {
+          _articles[index] = updatedArticle;
+          notifyListeners();
+        }
+        return updatedArticle;
+      }
+      return null;
+    } catch (e) {
+      _error = 'Failed to refresh article: $e';
       return null;
     }
   }

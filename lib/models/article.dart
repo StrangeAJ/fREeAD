@@ -4,6 +4,7 @@ class Article {
   final String description;
   final String? content;
   final String? fullContent; // New field for full article content
+  final String? summary; // AI-generated summary
   final String? imageUrl;
   final String url;
   final String? author;
@@ -21,6 +22,7 @@ class Article {
     required this.description,
     this.content,
     this.fullContent,
+    this.summary,
     this.imageUrl,
     required this.url,
     this.author,
@@ -40,6 +42,7 @@ class Article {
       description: json['description'],
       content: json['content'],
       fullContent: json['fullContent'],
+      summary: json['summary'],
       imageUrl: json['imageUrl'],
       url: json['url'],
       author: json['author'],
@@ -60,6 +63,7 @@ class Article {
       'description': description,
       'content': content,
       'fullContent': fullContent,
+      'summary': summary,
       'imageUrl': imageUrl,
       'url': url,
       'author': author,
@@ -79,6 +83,7 @@ class Article {
     String? description,
     String? content,
     String? fullContent,
+    String? summary,
     String? imageUrl,
     String? url,
     String? author,
@@ -96,6 +101,7 @@ class Article {
       description: description ?? this.description,
       content: content ?? this.content,
       fullContent: fullContent ?? this.fullContent,
+      summary: summary ?? this.summary,
       imageUrl: imageUrl ?? this.imageUrl,
       url: url ?? this.url,
       author: author ?? this.author,

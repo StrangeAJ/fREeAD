@@ -12,6 +12,23 @@ class SettingsProvider with ChangeNotifier {
   static const String _articleCleanupKey = 'article_cleanup_days';
   static const String _imageLoadingKey = 'image_loading_enabled';
 
+  // Add AI provider constants
+  static const String providerNone = 'none';
+  static const String providerOpenAI = 'openai';
+  static const String providerOpenRouter = 'openrouter';
+  static const String providerGemini = 'gemini';
+  static const String providerClaude = 'claude';
+  static const String providerPerplexity = 'perplexity';
+  static const String aiProviderKey = 'ai_provider';
+  static const String preferredProviderKey = 'preferred_ai_provider'; // Add preferred provider
+  static const String enabledProvidersKey = 'enabled_ai_providers'; // Add enabled providers list
+  static const String autoSaveSummariesKey = 'auto_save_summaries'; // Add auto save summaries setting
+  static const String openaiKey = 'openai_api_key';
+  static const String openrouterKey = 'openrouter_api_key';
+  static const String geminiKey = 'gemini_api_key';
+  static const String claudeKey = 'claude_api_key';
+  static const String perplexityKey = 'perplexity_api_key';
+
   SharedPreferences? _prefs;
   
   ThemeMode _themeMode = ThemeMode.system;
@@ -23,6 +40,17 @@ class SettingsProvider with ChangeNotifier {
   int _articleCleanupDays = 30;
   bool _imageLoadingEnabled = true;
 
+  // Add fields
+  String _aiProvider = providerNone;
+  String _preferredProvider = providerNone; // Add preferred provider field
+  List<String> _enabledProviders = []; // Add enabled providers list
+  bool _autoSaveSummaries = true; // Add auto save summaries field (default on)
+  String _openaiApiKey = '';
+  String _openrouterApiKey = '';
+  String _geminiApiKey = '';
+  String _claudeApiKey = '';
+  String _perplexityApiKey = '';
+
   // Getters
   ThemeMode get themeMode => _themeMode;
   double get fontSize => _fontSize;
@@ -32,6 +60,55 @@ class SettingsProvider with ChangeNotifier {
   bool get markAsReadOnScroll => _markAsReadOnScroll;
   int get articleCleanupDays => _articleCleanupDays;
   bool get imageLoadingEnabled => _imageLoadingEnabled;
+  String get aiProvider => _aiProvider;
+  String get preferredProvider => _preferredProvider;
+  List<String> get enabledProviders => _enabledProviders;
+  bool get autoSaveSummaries => _autoSaveSummaries; // Add getter for auto save summaries
+  String get openaiApiKey => _openaiApiKey;
+  String get openrouterApiKey => _openrouterApiKey;
+  String get geminiApiKey => _geminiApiKey;
+  String get claudeApiKey => _claudeApiKey;
+  String get perplexityApiKey => _perplexityApiKey;
+
+  // Check if a provider is configured (has API key)
+  bool isProviderConfigured(String provider) {
+    switch (provider) {
+      case providerOpenAI:
+        return _openaiApiKey.isNotEmpty;
+      case providerOpenRouter:
+        return _openrouterApiKey.isNotEmpty;
+      case providerGemini:
+        return _geminiApiKey.isNotEmpty;
+      case providerClaude:
+        return _claudeApiKey.isNotEmpty;
+      case providerPerplexity:
+        return _perplexityApiKey.isNotEmpty;
+      default:
+        return false;
+    }
+  }
+
+  // Get list of configured providers
+  List<String> get configuredProviders {
+    return availableAiProviders
+        .where((entry) => entry.key != providerNone && isProviderConfigured(entry.key))
+        .map((entry) => entry.key)
+        .toList();
+  }
+
+  // Get next available configured provider for fallback
+  String? getNextAvailableProvider(String currentProvider) {
+    final available = configuredProviders.where((p) => p != currentProvider).toList();
+    if (available.isNotEmpty) {
+      // Prefer the preferred provider if it's different and available
+      if (_preferredProvider != currentProvider && available.contains(_preferredProvider)) {
+        return _preferredProvider;
+      }
+      // Otherwise return first available
+      return available.first;
+    }
+    return null;
+  }
 
   // Initialize settings
   Future<void> init() async {
@@ -67,6 +144,21 @@ class SettingsProvider with ChangeNotifier {
 
     // Image loading
     _imageLoadingEnabled = _prefs!.getBool(_imageLoadingKey) ?? true;
+
+    // AI provider settings
+    _aiProvider = _prefs!.getString(aiProviderKey) ?? providerNone;
+    _preferredProvider = _prefs!.getString(preferredProviderKey) ?? providerNone;
+    _autoSaveSummaries = _prefs!.getBool(autoSaveSummariesKey) ?? true; // Load auto save summaries setting
+
+    // Load enabled providers list
+    final enabledProvidersJson = _prefs!.getStringList(enabledProvidersKey) ?? [];
+    _enabledProviders = enabledProvidersJson;
+
+    _openaiApiKey = _prefs!.getString(openaiKey) ?? '';
+    _openrouterApiKey = _prefs!.getString(openrouterKey) ?? '';
+    _geminiApiKey = _prefs!.getString(geminiKey) ?? '';
+    _claudeApiKey = _prefs!.getString(claudeKey) ?? '';
+    _perplexityApiKey = _prefs!.getString(perplexityKey) ?? '';
 
     notifyListeners();
   }
@@ -127,6 +219,68 @@ class SettingsProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  // Set AI provider
+  Future<void> setAiProvider(String provider) async {
+    _aiProvider = provider;
+    await _prefs?.setString(aiProviderKey, provider);
+    notifyListeners();
+  }
+
+  Future<void> setPreferredProvider(String provider) async {
+    _preferredProvider = provider;
+    await _prefs?.setString(preferredProviderKey, provider);
+    notifyListeners();
+  }
+
+  // API Key setters
+  Future<void> setOpenaiApiKey(String key) async {
+    _openaiApiKey = key;
+    await _prefs?.setString(openaiKey, key);
+    notifyListeners();
+  }
+
+  Future<void> setOpenrouterApiKey(String key) async {
+    _openrouterApiKey = key;
+    await _prefs?.setString(openrouterKey, key);
+    notifyListeners();
+  }
+
+  Future<void> setGeminiApiKey(String key) async {
+    _geminiApiKey = key;
+    await _prefs?.setString(geminiKey, key);
+    notifyListeners();
+  }
+
+  Future<void> setClaudeApiKey(String key) async {
+    _claudeApiKey = key;
+    await _prefs?.setString(claudeKey, key);
+    notifyListeners();
+  }
+
+  Future<void> setPerplexityApiKey(String key) async {
+    _perplexityApiKey = key;
+    await _prefs?.setString(perplexityKey, key);
+    notifyListeners();
+  }
+
+  // Set auto save summaries
+  Future<void> setAutoSaveSummaries(bool enabled) async {
+    _autoSaveSummaries = enabled;
+    await _prefs?.setBool(autoSaveSummariesKey, enabled);
+    notifyListeners();
+  }
+
+  // Toggle provider in enabled list
+  Future<void> toggleProviderEnabled(String provider, bool enabled) async {
+    if (enabled && !_enabledProviders.contains(provider)) {
+      _enabledProviders.add(provider);
+    } else if (!enabled && _enabledProviders.contains(provider)) {
+      _enabledProviders.remove(provider);
+    }
+    await _prefs?.setStringList(enabledProvidersKey, _enabledProviders);
+    notifyListeners();
+  }
+
   // Get available theme modes
   List<MapEntry<ThemeMode, String>> get availableThemes => [
     const MapEntry(ThemeMode.system, 'System'),
@@ -167,6 +321,16 @@ class SettingsProvider with ChangeNotifier {
     const MapEntry(0, 'Never'),
   ];
 
+  // Get available AI providers
+  List<MapEntry<String, String>> get availableAiProviders => [
+    const MapEntry(providerNone, 'None (Local)'),
+    const MapEntry(providerOpenAI, 'OpenAI'),
+    const MapEntry(providerOpenRouter, 'OpenRouter'),
+    const MapEntry(providerGemini, 'Gemini'),
+    const MapEntry(providerClaude, 'Claude'),
+    const MapEntry(providerPerplexity, 'Perplexity'),
+  ];
+
   // Reset all settings to default
   Future<void> resetToDefaults() async {
     await _prefs?.clear();
@@ -179,7 +343,15 @@ class SettingsProvider with ChangeNotifier {
     _markAsReadOnScroll = false;
     _articleCleanupDays = 30;
     _imageLoadingEnabled = true;
-    
+    _aiProvider = providerNone;
+    _preferredProvider = providerNone;
+    _enabledProviders = [];
+    _openaiApiKey = '';
+    _openrouterApiKey = '';
+    _geminiApiKey = '';
+    _claudeApiKey = '';
+    _perplexityApiKey = '';
+
     notifyListeners();
   }
 
@@ -194,6 +366,14 @@ class SettingsProvider with ChangeNotifier {
       _markAsReadOnScrollKey: _markAsReadOnScroll,
       _articleCleanupKey: _articleCleanupDays,
       _imageLoadingKey: _imageLoadingEnabled,
+      aiProviderKey: _aiProvider,
+      preferredProviderKey: _preferredProvider,
+      enabledProvidersKey: _enabledProviders,
+      openaiKey: _openaiApiKey,
+      openrouterKey: _openrouterApiKey,
+      geminiKey: _geminiApiKey,
+      claudeKey: _claudeApiKey,
+      perplexityKey: _perplexityApiKey,
     };
   }
 
@@ -212,6 +392,19 @@ class SettingsProvider with ChangeNotifier {
         case _refreshIntervalKey:
         case _articleCleanupKey:
           await _prefs!.setInt(entry.key, entry.value);
+          break;
+        // AI provider and API key entries
+        case preferredProviderKey:
+        case aiProviderKey:
+        case openaiKey:
+        case openrouterKey:
+        case geminiKey:
+        case claudeKey:
+        case perplexityKey:
+          await _prefs!.setString(entry.key, entry.value);
+          break;
+        case enabledProvidersKey:
+          await _prefs!.setStringList(entry.key, List<String>.from(entry.value));
           break;
         default:
           await _prefs!.setBool(entry.key, entry.value);

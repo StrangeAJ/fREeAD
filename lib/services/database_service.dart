@@ -4,6 +4,7 @@ import 'package:path/path.dart';
 import '../models/article.dart';
 import '../models/rss_feed.dart';
 import '../models/category.dart';
+import '../models/feed_summary.dart';
 
 class DatabaseService {
   static final DatabaseService _instance = DatabaseService._internal();
@@ -24,6 +25,10 @@ class DatabaseService {
     }
     
     _database = await _initDatabase();
+
+    // Ensure all required tables exist
+    await _ensureTablesExist();
+
     return _database!;
   }
 
@@ -35,7 +40,7 @@ class DatabaseService {
     String path = join(await getDatabasesPath(), 'freead.db');
     return await openDatabase(
       path,
-      version: 3,
+      version: 5,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -66,6 +71,37 @@ class DatabaseService {
         print('Fixed feeds with invalid category IDs');
       } catch (e) {
         print('Error fixing category IDs: $e');
+      }
+    }
+
+    if (oldVersion < 4) {
+      // Add summary column to articles table
+      try {
+        await db.execute('ALTER TABLE articles ADD COLUMN summary TEXT');
+        print('Added summary column to articles table');
+      } catch (e) {
+        print('Error adding summary column: $e');
+        // Column might already exist, continue
+      }
+    }
+
+    if (oldVersion < 5) {
+      // Create feed_summaries table
+      try {
+        await db.execute('''
+          CREATE TABLE feed_summaries (
+            id TEXT PRIMARY KEY,
+            feedId TEXT NOT NULL,
+            summary TEXT NOT NULL,
+            createdAt TEXT NOT NULL,
+            updatedAt TEXT NOT NULL,
+            FOREIGN KEY (feedId) REFERENCES feeds (id)
+          )
+        ''');
+        print('Created feed_summaries table');
+      } catch (e) {
+        print('Error creating feed_summaries table: $e');
+        // Table might already exist, continue
       }
     }
   }
@@ -119,8 +155,21 @@ class DatabaseService {
         isSaved INTEGER DEFAULT 0,
         isStarred INTEGER DEFAULT 0,
         dateAdded TEXT NOT NULL,
+        summary TEXT,
         FOREIGN KEY (feedId) REFERENCES feeds (id),
         FOREIGN KEY (categoryId) REFERENCES categories (id)
+      )
+    ''');
+
+    // Create feed_summaries table
+    await db.execute('''
+      CREATE TABLE feed_summaries (
+        id TEXT PRIMARY KEY,
+        feedId TEXT NOT NULL,
+        summary TEXT NOT NULL,
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL,
+        FOREIGN KEY (feedId) REFERENCES feeds (id)
       )
     ''');
 
@@ -135,6 +184,35 @@ class DatabaseService {
     // Insert default categories
     for (final category in Category.defaultCategories) {
       await db.insert('categories', category.toJson());
+    }
+  }
+
+  // Ensure all required tables exist (for backward compatibility)
+  Future<void> _ensureTablesExist() async {
+    final db = _database!;
+
+    // Check if feed_summaries table exists
+    final result = await db.rawQuery(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='feed_summaries'"
+    );
+
+    if (result.isEmpty) {
+      // Create feed_summaries table if it doesn't exist
+      try {
+        await db.execute('''
+          CREATE TABLE feed_summaries (
+            id TEXT PRIMARY KEY,
+            feedId TEXT NOT NULL,
+            summary TEXT NOT NULL,
+            createdAt TEXT NOT NULL,
+            updatedAt TEXT NOT NULL,
+            FOREIGN KEY (feedId) REFERENCES feeds (id)
+          )
+        ''');
+        print('Created missing feed_summaries table');
+      } catch (e) {
+        print('Error creating feed_summaries table: $e');
+      }
     }
   }
 
@@ -425,40 +503,113 @@ class DatabaseService {
     );
   }
 
-  Future<int> deleteArticle(String id) async {
+  Future<int> updateArticleSummary(String articleId, String summary) async {
     final db = await database;
-    return await db.delete('articles', where: 'id = ?', whereArgs: [id]);
+    return await db.update(
+      'articles',
+      {'summary': summary},
+      where: 'id = ?',
+      whereArgs: [articleId],
+    );
   }
 
+  // Feed Summary operations
+  Future<FeedSummary?> getFeedSummary(String feedId) async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'feed_summaries',
+      where: 'feedId = ?',
+      whereArgs: [feedId],
+      orderBy: 'updatedAt DESC',
+      limit: 1,
+    );
+    return maps.isNotEmpty ? FeedSummary.fromJson(maps.first) : null;
+  }
+
+  Future<int> saveFeedSummary(String feedId, String summary) async {
+    final db = await database;
+    final now = DateTime.now();
+    final existingSummary = await getFeedSummary(feedId);
+
+    if (existingSummary != null) {
+      // Update existing summary
+      return await db.update(
+        'feed_summaries',
+        {
+          'summary': summary,
+          'updatedAt': now.toIso8601String(),
+        },
+        where: 'feedId = ?',
+        whereArgs: [feedId],
+      );
+    } else {
+      // Insert new summary
+      final feedSummary = FeedSummary(
+        id: '${feedId}_${now.millisecondsSinceEpoch}',
+        feedId: feedId,
+        summary: summary,
+        createdAt: now,
+        updatedAt: now,
+      );
+      return await db.insert('feed_summaries', feedSummary.toJson());
+    }
+  }
+
+  Future<int> deleteFeedSummary(String feedId) async {
+    final db = await database;
+    return await db.delete(
+      'feed_summaries',
+      where: 'feedId = ?',
+      whereArgs: [feedId],
+    );
+  }
+
+  // Delete a single article
+  Future<int> deleteArticle(String articleId) async {
+    final db = await database;
+    return await db.delete(
+      'articles',
+      where: 'id = ?',
+      whereArgs: [articleId],
+    );
+  }
+
+  // Delete old articles older than specified days
   Future<int> deleteOldArticles(int daysOld) async {
     final db = await database;
     final cutoffDate = DateTime.now().subtract(Duration(days: daysOld));
     return await db.delete(
       'articles',
-      where: 'publishedDate < ? AND isSaved = 0 AND isStarred = 0',
+      where: 'publishedDate < ?',
       whereArgs: [cutoffDate.toIso8601String()],
     );
   }
 
-  // Statistics
+  // Get article statistics
   Future<Map<String, int>> getArticleStats() async {
     final db = await database;
+
+    // Get total count
     final totalResult = await db.rawQuery('SELECT COUNT(*) as count FROM articles');
+    final totalCount = totalResult.first['count'] as int;
+
+    // Get unread count
     final unreadResult = await db.rawQuery('SELECT COUNT(*) as count FROM articles WHERE isRead = 0');
+    final unreadCount = unreadResult.first['count'] as int;
+
+    // Get saved count
     final savedResult = await db.rawQuery('SELECT COUNT(*) as count FROM articles WHERE isSaved = 1');
+    final savedCount = savedResult.first['count'] as int;
+
+    // Get starred count
     final starredResult = await db.rawQuery('SELECT COUNT(*) as count FROM articles WHERE isStarred = 1');
+    final starredCount = starredResult.first['count'] as int;
 
     return {
-      'total': totalResult.first['count'] as int,
-      'unread': unreadResult.first['count'] as int,
-      'saved': savedResult.first['count'] as int,
-      'starred': starredResult.first['count'] as int,
+      'total': totalCount,
+      'unread': unreadCount,
+      'saved': savedCount,
+      'starred': starredCount,
     };
-  }
-
-  // Close database
-  Future<void> close() async {
-    final db = await database;
-    await db.close();
   }
 }

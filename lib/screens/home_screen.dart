@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_html/flutter_html.dart';
 import 'package:provider/provider.dart';
 import '../providers/feed_provider.dart';
 import '../providers/article_provider.dart';
@@ -9,6 +8,9 @@ import '../screens/feed_management_screen.dart';
 import '../screens/category_articles_screen.dart';
 import '../widgets/futuristic_widgets.dart';
 import '../widgets/futuristic_dialogs.dart';
+import '../services/summarization_service.dart';
+import '../widgets/feed_summary_dialog.dart';
+import '../utils/time_formatter.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -44,6 +46,13 @@ class _HomeScreenState extends State<HomeScreen> {
           IconButton(
             icon: const Icon(Icons.search_rounded),
             onPressed: () => _showSearch(),
+          ),
+          IconButton(
+            icon: const Icon(Icons.auto_awesome),
+            tooltip: 'Summarize Feed',
+            onPressed: () {
+              _showFeedSummaryDialog(context);
+            },
           ),
         ],
       ),
@@ -138,6 +147,13 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (context) => const FuturisticAddFeedDialog(),
     );
   }
+
+  void _showFeedSummaryDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => const FeedSummaryDialog(),
+    );
+  }
 }
 
 class HomeTab extends StatelessWidget {
@@ -203,7 +219,7 @@ class HomeTab extends StatelessWidget {
                   Icon(
                     Icons.rss_feed_rounded, 
                     size: 64, 
-                    color: Theme.of(context).colorScheme.primary.withOpacity(0.6),
+                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.6),
                   ),
                   const SizedBox(height: 16),
                   Text(
@@ -214,7 +230,7 @@ class HomeTab extends StatelessWidget {
                   Text(
                     'Add some RSS feeds to get started',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                     ),
                   ),
                 ],
@@ -261,24 +277,22 @@ class HomeTab extends StatelessWidget {
                           width: 80,
                           height: 80,
                           decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(16),
-                            color: Theme.of(context).colorScheme.surfaceVariant,
+                            borderRadius: BorderRadius.circular(16), color: Theme.of(context).colorScheme.surfaceContainerHighest,
                           ),
                           child: article.imageUrl != null
                               ? ClipRRect(
                             borderRadius: BorderRadius.circular(16),
-                            child:
-                             Expanded(
-                              child:  Image.network(
+                            child: Image.network(
                               article.imageUrl!,
                               width: 80,
+                              height: 80,
+                              fit: BoxFit.cover,
                               errorBuilder: (context, error, stackTrace) {
-                                return
-                                  Container(
+                                return Container(
                                   width: 80,
                                   height: 80,
                                   decoration: BoxDecoration(
-                                    color: Theme.of(context).colorScheme.surfaceVariant,
+                                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
                                     borderRadius: BorderRadius.circular(16),
                                   ),
                                   child: Icon(
@@ -288,7 +302,6 @@ class HomeTab extends StatelessWidget {
                                 );
                               },
                             ),
-                             )
                           )
                               : Icon(
                             Icons.article_outlined,
@@ -302,10 +315,10 @@ class HomeTab extends StatelessWidget {
                           width: 80,
                           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                           decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
-                              color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
                               width: 1,
                             ),
                           ),
@@ -376,7 +389,7 @@ class HomeTab extends StatelessWidget {
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
                             ),
                           ),
                           const SizedBox(height: 8),
@@ -390,21 +403,15 @@ class HomeTab extends StatelessWidget {
                                       Icon(
                                       Icons.access_time_rounded,
                                       size: 16,
-                                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
                                       ),
                                       const SizedBox(width: 2),
                                       Text(
-                                  '${DateTime.now().year == article.publishedDate.year
-                                      ? ''
-                                      : '${article.publishedDate.year.toString().padLeft(4, '0')}-'}'
-                                      '${article.publishedDate.month.toString().padLeft(2, '0')}-'
-                                      '${article.publishedDate.day.toString().padLeft(2, '0')} '
-                                      '${article.publishedDate.hour.toString().padLeft(2, '0')}:'
-                                      '${article.publishedDate.minute.toString().padLeft(2, '0')}',
-                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
-                                  ),
-                                )
+                                TimeFormatter.formatRelativeTime(article.publishedDate),
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                                ),
+                              )
                                     ]
                                 )
                               ),
@@ -415,7 +422,7 @@ class HomeTab extends StatelessWidget {
                                     Icon(
                                       Icons.person_rounded,
                                       size: 16,
-                                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
                                     ),
                                     const SizedBox(width: 2),
                                     Expanded(child:
@@ -423,7 +430,7 @@ class HomeTab extends StatelessWidget {
                                       article.author?.trimLeft() ?? 'Unknown',
                                       overflow: TextOverflow.ellipsis,
                                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
 
                                       ),
                                     ),
@@ -499,7 +506,7 @@ class CategoriesTab extends StatelessWidget {
                   Icon(
                     Icons.category_rounded,
                     size: 64,
-                    color: Theme.of(context).colorScheme.primary.withOpacity(0.6),
+                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.6),
                   ),
                   const SizedBox(height: 16),
                   Text(
@@ -510,7 +517,7 @@ class CategoriesTab extends StatelessWidget {
                   Text(
                     'Categories will appear here as you add feeds',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                     ),
                   ),
                 ],
@@ -551,7 +558,7 @@ class CategoriesTab extends StatelessWidget {
                         BoxShadow(
                           color: (category.color != null 
                               ? Color(int.parse(category.color!.substring(1, 7), radix: 16) + 0xFF000000)
-                              : Theme.of(context).colorScheme.primary).withOpacity(0.3),
+                              : Theme.of(context).colorScheme.primary).withValues(alpha: 0.3),
                           blurRadius: 8,
                           offset: const Offset(0, 4),
                         ),
@@ -572,7 +579,7 @@ class CategoriesTab extends StatelessWidget {
                         Text(
                           category.description,
                           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
                           ),
                         ),
                       ],
@@ -581,7 +588,7 @@ class CategoriesTab extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
@@ -621,7 +628,7 @@ class SavedTab extends StatelessWidget {
                   Icon(
                     Icons.bookmark_border_rounded,
                     size: 64,
-                    color: Theme.of(context).colorScheme.primary.withOpacity(0.6),
+                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.6),
                   ),
                   const SizedBox(height: 16),
                   Text(
@@ -632,7 +639,7 @@ class SavedTab extends StatelessWidget {
                   Text(
                     'Save articles to read them later',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                     ),
                   ),
                 ],
@@ -656,10 +663,10 @@ class SavedTab extends StatelessWidget {
                     width: 60,
                     height: 60,
                     decoration: BoxDecoration(
-                      color: Colors.orange.withOpacity(0.2),
+                      color: Colors.orange.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: Colors.orange.withOpacity(0.4),
+                        color: Colors.orange.withValues(alpha: 0.4),
                         width: 2,
                       ),
                     ),
@@ -686,7 +693,7 @@ class SavedTab extends StatelessWidget {
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -695,13 +702,13 @@ class SavedTab extends StatelessWidget {
                             Icon(
                               Icons.access_time_rounded,
                               size: 16,
-                              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
                             ),
                             const SizedBox(width: 4),
                             Text(
                               'Saved • ${article.timeAgo}',
                               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
                               ),
                             ),
                           ],
@@ -738,205 +745,374 @@ class SettingsTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Consumer<SettingsProvider>(
-
       builder: (context, settings, child) {
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 20),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Text(
-                'Appearance',
-                style: Theme.of(context).textTheme.headlineSmall,
+        return SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 20),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Text(
+                  'Appearance',
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
+              const SizedBox(height: 16),
+              // Theme setting
+              FuturisticCard(
+                onTap: () => _showThemeDialog(context, settings),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.4),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        Icons.palette_rounded,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Theme',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            _getThemeText(settings.themeMode),
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                    ),
+                  ],
+                ),
+              ),
+              // Font size setting
+              FuturisticCard(
+                onTap: () => _showFontSizeDialog(context, settings),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.secondary.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        Icons.text_fields_rounded,
+                        color: Theme.of(context).colorScheme.secondary,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Font Size',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${settings.fontSize.toInt()}px',
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 32),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Text(
+                  'Features',
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Auto refresh toggle
+              FuturisticCard(
+                child: Row(
+                  children: [
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.tertiary.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        Icons.refresh_rounded,
+                        color: Theme.of(context).colorScheme.tertiary,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Auto Refresh',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Automatically refresh feeds',
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Switch(
+                      value: settings.autoRefresh,
+                      onChanged: (value) => settings.setAutoRefresh(value),
+                    ),
+                  ],
+                ),
+              ),
+              // Image loading toggle
+              FuturisticCard(
+                child: Row(
+                  children: [
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: Colors.purple.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.image_rounded,
+                        color: Colors.purple,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Load Images',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Show images in articles',
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Switch(
+                      value: settings.imageLoadingEnabled,
+                      onChanged: (value) => settings.setImageLoadingEnabled(value),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 32),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Text(
+                  'AI Models',
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
+              ),
+              const SizedBox(height: 16),
 
-            // Theme setting
-            FuturisticCard(
-              onTap: () => _showThemeDialog(context, settings),
-              child: Row(
-                children: [
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primary.withOpacity(0.4),
-                      borderRadius: BorderRadius.circular(12),
+              // Preferred provider selection
+              FuturisticCard(
+                onTap: () => _showPreferredProviderDialog(context, settings),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.star, color: Colors.blue),
                     ),
-                    child: Icon(
-                      Icons.palette_rounded,
-                      color: Theme.of(context).colorScheme.primary,
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Preferred Provider',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            settings.preferredProvider == SettingsProvider.providerNone
+                              ? 'None selected'
+                              : settings.availableAiProviders
+                                  .firstWhere((e) => e.key == settings.preferredProvider)
+                                  .value,
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
+                    Icon(Icons.chevron_right_rounded,
+                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5)),
+                  ],
+                ),
+              ),
+
+              // Provider status overview
+              FuturisticCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Configured Providers',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 12),
+                    ...settings.availableAiProviders
+                        .where((provider) => provider.key != SettingsProvider.providerNone)
+                        .map((provider) {
+                      final isConfigured = settings.isProviderConfigured(provider.key);
+                      final isPreferred = settings.preferredProvider == provider.key;
+
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Row(
+                          children: [
+                            Icon(
+                              isConfigured ? Icons.check_circle : Icons.circle_outlined,
+                              size: 20,
+                              color: isConfigured
+                                ? (isPreferred ? Colors.blue : Colors.green)
+                                : Colors.grey,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                provider.value,
+                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                  color: isConfigured
+                                    ? Theme.of(context).colorScheme.onSurface
+                                    : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                                  fontWeight: isPreferred ? FontWeight.bold : FontWeight.normal,
+                                ),
+                              ),
+                            ),
+                            if (isPreferred)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.withValues(alpha: 0.2),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  'PREFERRED',
+                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Colors.blue,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 10,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ],
+                ),
+              ),
+
+              // API Keys section - show all providers
+              ...settings.availableAiProviders
+                  .where((provider) => provider.key != SettingsProvider.providerNone)
+                  .map((provider) {
+                final apiKey = _getApiKeyForProvider(settings, provider.key);
+                final isConfigured = apiKey.isNotEmpty;
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: FuturisticCard(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'Theme',
-                          style: Theme.of(context).textTheme.titleMedium,
+                        Row(
+                          children: [
+                            Icon(
+                              _getProviderIcon(provider.key),
+                              color: isConfigured ? Colors.green : Colors.grey,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                '${provider.value} API Key',
+                                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  color: isConfigured
+                                    ? Theme.of(context).colorScheme.onSurface
+                                    : Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                                ),
+                              ),
+                            ),
+                            if (isConfigured)
+                              Icon(Icons.check_circle, color: Colors.green, size: 20),
+                          ],
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          _getThemeText(settings.themeMode),
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          initialValue: apiKey,
+                          obscureText: true,
+                          decoration: InputDecoration(
+                            hintText: 'Enter ${provider.value} API key',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            suffixIcon: apiKey.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear),
+                                  onPressed: () => _clearApiKey(settings, provider.key),
+                                )
+                              : null,
                           ),
+                          onChanged: (value) => _updateApiKey(settings, provider.key, value),
                         ),
                       ],
                     ),
                   ),
-                  Icon(
-                    Icons.chevron_right_rounded,
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
-                  ),
-                ],
-              ),
-            ),
-
-            // Font size setting
-            FuturisticCard(
-              onTap: () => _showFontSizeDialog(context, settings),
-              child: Row(
-                children: [
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.secondary.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(
-                      Icons.text_fields_rounded,
-                      color: Theme.of(context).colorScheme.secondary,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Font Size',
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${settings.fontSize.toInt()}px',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Icon(
-                    Icons.chevron_right_rounded,
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 32),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Text(
-                'Features',
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Auto refresh toggle
-            FuturisticCard(
-              child: Row(
-                children: [
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.tertiary.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(
-                      Icons.refresh_rounded,
-                      color: Theme.of(context).colorScheme.tertiary,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Auto Refresh',
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Automatically refresh feeds',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Switch(
-                    value: settings.autoRefresh,
-                    onChanged: (value) => settings.setAutoRefresh(value),
-                  ),
-                ],
-              ),
-            ),
-
-            // Image loading toggle
-            FuturisticCard(
-              child: Row(
-                children: [
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: Colors.purple.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(
-                      Icons.image_rounded,
-                      color: Colors.purple,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Load Images',
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Show images in articles',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Switch(
-                    value: settings.imageLoadingEnabled,
-                    onChanged: (value) => settings.setImageLoadingEnabled(value),
-                  ),
-                ],
-              ),
-            ),
-          ],
+                );
+              }).toList(),
+            ],
+          ),
         );
       },
     );
@@ -1183,6 +1359,106 @@ class SettingsTab extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  void _showPreferredProviderDialog(BuildContext context, SettingsProvider settings) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: settings.availableAiProviders.map((entry) {
+              return ListTile(
+                leading: Radio<String>(
+                  value: entry.key,
+                  groupValue: settings.preferredProvider,
+                  onChanged: (value) {
+                    if (value != null) {
+                      settings.setPreferredProvider(value);
+                    }
+                    Navigator.of(context).pop();
+                  },
+                ),
+                title: Text(entry.value),
+                onTap: () {
+                  settings.setPreferredProvider(entry.key);
+                  Navigator.of(context).pop();
+                },
+              );
+            }).toList(),
+          ),
+        );
+      },
+    );
+  }
+
+  // Helper methods for API key management
+  String _getApiKeyForProvider(SettingsProvider settings, String providerKey) {
+    switch (providerKey) {
+      case 'openai':
+        return settings.openaiApiKey;
+      case 'anthropic':
+      case 'claude':
+        return settings.claudeApiKey;
+      case 'google':
+      case 'gemini':
+        return settings.geminiApiKey;
+      case 'ollama':
+      case 'openrouter':
+        return settings.openrouterApiKey;
+      case 'perplexity':
+        return settings.perplexityApiKey;
+      default:
+        return '';
+    }
+  }
+
+  IconData _getProviderIcon(String providerKey) {
+    switch (providerKey) {
+      case 'openai':
+        return Icons.psychology;
+      case 'anthropic':
+      case 'claude':
+        return Icons.smart_toy;
+      case 'google':
+      case 'gemini':
+        return Icons.cloud;
+      case 'ollama':
+      case 'openrouter':
+        return Icons.computer;
+      case 'perplexity':
+        return Icons.api;
+      default:
+        return Icons.api;
+    }
+  }
+
+  void _clearApiKey(SettingsProvider settings, String providerKey) {
+    _updateApiKey(settings, providerKey, '');
+  }
+
+  void _updateApiKey(SettingsProvider settings, String providerKey, String value) {
+    switch (providerKey) {
+      case 'openai':
+        settings.setOpenaiApiKey(value);
+        break;
+      case 'anthropic':
+      case 'claude':
+        settings.setClaudeApiKey(value);
+        break;
+      case 'google':
+      case 'gemini':
+        settings.setGeminiApiKey(value);
+        break;
+      case 'ollama':
+      case 'openrouter':
+        settings.setOpenrouterApiKey(value);
+        break;
+      case 'perplexity':
+        settings.setPerplexityApiKey(value);
+        break;
+    }
   }
 }
 

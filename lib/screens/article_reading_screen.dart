@@ -9,6 +9,7 @@ import '../providers/article_provider.dart';
 import '../providers/settings_provider.dart';
 import '../widgets/futuristic_buttons.dart';
 import '../widgets/futuristic_widgets.dart';
+import '../services/summarization_service.dart';
 
 class ArticleReadingScreen extends StatefulWidget {
   final Article article;
@@ -26,6 +27,8 @@ class _ArticleReadingScreenState extends State<ArticleReadingScreen> {
   final ScrollController _scrollController = ScrollController();
   bool _isScrolled = false;
   bool _showFullContent = false;
+  String? _summary; // Add summary state
+  bool _isLoadingSummary = false; // Add loading state
 
   @override
   void initState() {
@@ -35,7 +38,18 @@ class _ArticleReadingScreenState extends State<ArticleReadingScreen> {
     // Mark article as read when opening
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ArticleProvider>().markAsRead(widget.article.id);
+      // Load existing summary if available
+      _loadExistingSummary();
     });
+  }
+
+  // Load existing summary from the article
+  void _loadExistingSummary() {
+    if (widget.article.summary != null && widget.article.summary!.isNotEmpty) {
+      setState(() {
+        _summary = widget.article.summary;
+      });
+    }
   }
 
   @override
@@ -152,6 +166,101 @@ class _ArticleReadingScreenState extends State<ArticleReadingScreen> {
             );
           },
         ),
+        IconButton(
+          icon: Icon(Icons.auto_awesome),
+          tooltip: 'Summarize',
+          onPressed: () async {
+            setState(() {
+              _isLoadingSummary = true;
+            });
+
+            try {
+              // Use the new summarizeArticle method that includes caching
+              final summary = await SummarizationService().summarizeArticle(widget.article);
+
+              // Check if auto-save is enabled to show appropriate notification
+              final settings = context.read<SettingsProvider>();
+              final autoSave = settings.autoSaveSummaries;
+
+              setState(() {
+                _summary = summary;
+                _isLoadingSummary = false;
+              });
+
+              // Refresh the article from database to get updated summary
+              final articleProvider = context.read<ArticleProvider>();
+              await articleProvider.refreshArticle(widget.article.id);
+
+              // Show popup notification based on auto-save setting
+              if (mounted) {
+                if (autoSave) {
+                  // Show "Summary Saved" notification if auto-save is enabled
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Row(
+                        children: [
+                          Icon(Icons.check_circle, color: Colors.green, size: 20),
+                          SizedBox(width: 8),
+                          Text('Summary Saved'),
+                        ],
+                      ),
+                      duration: Duration(seconds: 2),
+                      backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                    ),
+                  );
+                } else {
+                  // Show option to save manually if auto-save is disabled
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Summary generated'),
+                      action: SnackBarAction(
+                        label: 'Save',
+                        onPressed: () async {
+                          try {
+                            await SummarizationService().saveSummary(widget.article.id, summary);
+                            // Refresh the article after manual save
+                            await articleProvider.refreshArticle(widget.article.id);
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Row(
+                                    children: [
+                                      Icon(Icons.check_circle, color: Colors.green, size: 20),
+                                      SizedBox(width: 8),
+                                      Text('Summary Saved'),
+                                    ],
+                                  ),
+                                  duration: Duration(seconds: 2),
+                                  backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                                ),
+                              );
+                            }
+                          } catch (e) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Failed to save summary: $e')),
+                              );
+                            }
+                          }
+                        },
+                      ),
+                      duration: Duration(seconds: 4),
+                    ),
+                  );
+                }
+              }
+            } catch (e) {
+              setState(() {
+                _isLoadingSummary = false;
+              });
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Error: ${e.toString()}')),
+                );
+              }
+            }
+          },
+        ),
         PopupMenuButton<String>(
           onSelected: _handleMenuSelection,
           itemBuilder: (context) => [
@@ -211,6 +320,10 @@ class _ArticleReadingScreenState extends State<ArticleReadingScreen> {
           // Article metadata
           _buildMetadata(context, settings),
           
+          // Add summary section between metadata and content
+          if (_isLoadingSummary || _summary != null)
+            _buildSummary(context, settings),
+
           const SizedBox(height: 24),
           
           // Article content
@@ -274,6 +387,66 @@ class _ArticleReadingScreenState extends State<ArticleReadingScreen> {
               ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummary(BuildContext context, SettingsProvider settings) {
+    return Container(
+      padding: const EdgeInsets.all(16.0),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Summary title
+          Text(
+            'Summary',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: Theme.of(context).colorScheme.onPrimaryContainer,
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          // Summary content
+          if (_isLoadingSummary)
+            Row(
+              children: [
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  'Generating summary...',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onPrimaryContainer,
+                  ),
+                ),
+              ],
+            )
+          else if (_summary != null)
+            SelectableText(
+              _summary!,
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                fontSize: settings.fontSize,
+                height: 1.6,
+                color: _getTextColor(context, settings),
+              ),
+            )
+          else
+            Text(
+              'No summary available. Tap the summarize button to generate one.',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+              textAlign: TextAlign.center,
+            ),
         ],
       ),
     );
