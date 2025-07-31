@@ -4,6 +4,8 @@ import '../models/category.dart' as model;
 import '../services/database_service.dart';
 import '../services/rss_service.dart';
 import 'article_provider.dart';
+import 'package:flutter/foundation.dart';
+import '../utils/concurrency_utils.dart';
 
 class FeedProvider with ChangeNotifier {
   final DatabaseService _databaseService = DatabaseService();
@@ -123,8 +125,8 @@ class FeedProvider with ChangeNotifier {
         return false;
       }
 
-      // Fetch feed info
-      final feedInfo = await _rssService.fetchFeedInfo(url);
+      // Fetch feed info using isolate
+      final feedInfo = await compute(fetchFeedInfoIsolate, url);
       final feed = feedInfo.copyWith(categoryId: categoryId);
 
       // Save to database
@@ -245,21 +247,27 @@ class FeedProvider with ChangeNotifier {
 
   // Refresh feed
   Future<bool> refreshFeed(String feedId) async {
+    _setLoading(true);
     try {
+      // Get the feed details and refresh it
       final feed = _feeds.firstWhere((f) => f.id == feedId);
-      final updatedFeed = feed.copyWith(lastUpdated: DateTime.now());
-      await _databaseService.updateFeed(updatedFeed);
-      
-      final index = _feeds.indexWhere((f) => f.id == feedId);
-      if (index != -1) {
-        _feeds[index] = updatedFeed;
+
+      // Fetch new articles for this feed using isolate
+      final articles = await compute(parseRSSFeedIsolate, {'url': feed.url, 'feedId': feedId});
+
+      // Save new articles to database
+      for (final article in articles) {
+        await _databaseService.saveArticle(article.copyWith(feedId: feedId));
       }
-      
+
+      _error = null;
       notifyListeners();
       return true;
     } catch (e) {
       _error = 'Failed to refresh feed: $e';
       return false;
+    } finally {
+      _setLoading(false);
     }
   }
 

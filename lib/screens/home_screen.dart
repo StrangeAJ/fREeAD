@@ -8,7 +8,7 @@ import '../screens/feed_management_screen.dart';
 import '../screens/category_articles_screen.dart';
 import '../widgets/futuristic_widgets.dart';
 import '../widgets/futuristic_dialogs.dart';
-import '../services/summarization_service.dart';
+import '../widgets/futuristic_search_delegate.dart';
 import '../widgets/feed_summary_dialog.dart';
 import '../utils/time_formatter.dart';
 
@@ -1280,9 +1280,8 @@ class SettingsTab extends StatelessWidget {
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
                             color: settings.fontSize == entry.key
-                                ? Theme.of(context).colorScheme.outline.withAlpha(180)
-                                : Theme.of(context).colorScheme.outline.withAlpha(225),
-                            width: settings.fontSize == entry.key ? 2 : 1,
+                                ? Theme.of(context).colorScheme.primary
+                                : Theme.of(context).colorScheme.outline.withAlpha(204),
                           ),
                           color: settings.fontSize == entry.key
                               ? Theme.of(context).colorScheme.primary.withAlpha(90)
@@ -1299,7 +1298,7 @@ class SettingsTab extends StatelessWidget {
                                 border: Border.all(
                                   color: settings.fontSize == entry.key
                                       ? Theme.of(context).colorScheme.primary
-                                      : Theme.of(context).colorScheme.outline.withOpacity(0.8),
+                                      : Theme.of(context).colorScheme.outline.withAlpha(204),
                                   width: 2,
                                 ),
                                 color: settings.fontSize == entry.key

@@ -3,14 +3,11 @@ import '../models/article.dart';
 import '../models/rss_feed.dart';
 import '../services/database_service.dart';
 import '../services/rss_service.dart';
-import '../services/full_article_service.dart';
-import '../services/enhanced_article_service.dart';
+import '../utils/concurrency_utils.dart';
 
 class ArticleProvider with ChangeNotifier {
   final DatabaseService _databaseService = DatabaseService();
   final RSSService _rssService = RSSService();
-  final FullArticleService _fullArticleService = FullArticleService();
-  final EnhancedArticleService _enhancedArticleService = EnhancedArticleService();
 
   List<Article> _articles = [];
   List<Article> _savedArticles = [];
@@ -186,7 +183,7 @@ class ArticleProvider with ChangeNotifier {
       final feed = feeds.firstWhere((f) => f.id == feedId);
 
       // Fetch new articles for this feed
-      final articles = await _rssService.fetchArticles(feed.url);
+      final articles = await compute(parseRSSFeedIsolate, {'url': feed.url, 'feedId': feedId});
 
       // Save new articles to database
       for (final article in articles) {
@@ -227,7 +224,7 @@ class ArticleProvider with ChangeNotifier {
   Future<void> refreshFeedArticles(String feedId, String feedUrl) async {
     _setLoading(true);
     try {
-      final newArticles = await _rssService.parseRSSFeed(feedUrl, feedId);
+      final newArticles = await compute(parseRSSFeedIsolate, {'url': feedUrl, 'feedId': feedId});
       
       // Batch insert new articles, ignoring duplicates for performance
       await _databaseService.insertArticlesBatch(newArticles);
@@ -264,7 +261,7 @@ class ArticleProvider with ChangeNotifier {
         for (final feedUrl in allFeeds) {
           try {
             print('Fetching articles from: $feedUrl');
-            final articles = await _rssService.parseRSSFeed(feedUrl, 'feed_${allFeeds.indexOf(feedUrl)}');
+            final articles = await compute(parseRSSFeedIsolate, {'url': feedUrl, 'feedId': 'feed_${allFeeds.indexOf(feedUrl)}'});
             print('Got ${articles.length} articles from $feedUrl');
             newArticles.addAll(articles);
           } catch (e) {
@@ -299,7 +296,7 @@ class ArticleProvider with ChangeNotifier {
       final parseFutures = activeFeeds.map((feed) async {
         try {
           print('Refreshing feed: ${feed.title} (${feed.url})');
-          final articles = await _rssService.parseRSSFeed(feed.url, feed.id);
+          final articles = await compute(parseRSSFeedIsolate, {'url': feed.url, 'feedId': feed.id});
           print('Got ${articles.length} articles from ${feed.title}');
           return articles;
         } catch (e) {
@@ -575,18 +572,18 @@ class ArticleProvider with ChangeNotifier {
       
       try {
         print('Trying enhanced article extraction for: ${article.url}');
-        extractedContent = await _enhancedArticleService.extractArticleContent(article.url);
+        extractedContent = await compute(extractEnhancedArticleContentIsolate, article.url);
         
         if (extractedContent != null && extractedContent['content'] != null) {
           fullContent = extractedContent['content'];
           print('Enhanced extraction successful. Content length: ${fullContent?.length}');
         } else {
           print('Enhanced extraction failed, falling back to original service');
-          fullContent = await _fullArticleService.fetchFullArticleContent(article.url);
+          fullContent = await compute(fetchFullArticleContentIsolate, article.url);
         }
       } catch (e) {
         print('Enhanced extraction error: $e, falling back to original service');
-        fullContent = await _fullArticleService.fetchFullArticleContent(article.url);
+        fullContent = await compute(fetchFullArticleContentIsolate, article.url);
       }
       
       // Remove from loading set

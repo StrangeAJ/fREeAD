@@ -40,7 +40,7 @@ class DatabaseService {
     String path = join(await getDatabasesPath(), 'freead.db');
     return await openDatabase(
       path,
-      version: 5,
+      version: 6, // Updated version to include annotation tables
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -102,6 +102,44 @@ class DatabaseService {
       } catch (e) {
         print('Error creating feed_summaries table: $e');
         // Table might already exist, continue
+      }
+    }
+
+    if (oldVersion < 6) {
+      // Create annotation tables
+      try {
+        await db.execute('''
+          CREATE TABLE article_highlights (
+            id TEXT PRIMARY KEY,
+            articleId TEXT NOT NULL,
+            selectedText TEXT NOT NULL,
+            startIndex INTEGER NOT NULL,
+            endIndex INTEGER NOT NULL,
+            color TEXT NOT NULL,
+            note TEXT,
+            createdAt TEXT NOT NULL,
+            updatedAt TEXT NOT NULL,
+            FOREIGN KEY (articleId) REFERENCES articles (id) ON DELETE CASCADE
+          )
+        ''');
+        print('Created article_highlights table');
+
+        await db.execute('''
+          CREATE TABLE article_notes (
+            id TEXT PRIMARY KEY,
+            articleId TEXT NOT NULL,
+            content TEXT NOT NULL,
+            position INTEGER,
+            highlightId TEXT,
+            createdAt TEXT NOT NULL,
+            updatedAt TEXT NOT NULL,
+            FOREIGN KEY (articleId) REFERENCES articles (id) ON DELETE CASCADE,
+            FOREIGN KEY (highlightId) REFERENCES article_highlights (id) ON DELETE CASCADE
+          )
+        ''');
+        print('Created article_notes table');
+      } catch (e) {
+        print('Error creating annotation tables: $e');
       }
     }
   }
@@ -170,6 +208,35 @@ class DatabaseService {
         createdAt TEXT NOT NULL,
         updatedAt TEXT NOT NULL,
         FOREIGN KEY (feedId) REFERENCES feeds (id)
+      )
+    ''');
+
+    // Create annotation tables
+    await db.execute('''
+      CREATE TABLE article_highlights (
+        id TEXT PRIMARY KEY,
+        articleId TEXT NOT NULL,
+        selectedText TEXT NOT NULL,
+        startIndex INTEGER NOT NULL,
+        endIndex INTEGER NOT NULL,
+        color TEXT NOT NULL,
+        note TEXT,
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL,
+        FOREIGN KEY (articleId) REFERENCES articles (id) ON DELETE CASCADE
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE article_notes (
+        id TEXT PRIMARY KEY,
+        articleId TEXT NOT NULL,
+        content TEXT NOT NULL,
+        position INTEGER,
+        highlightId TEXT,
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL,
+        FOREIGN KEY (articleId) REFERENCES articles (id) ON DELETE CASCADE,
+        FOREIGN KEY (highlightId) REFERENCES article_highlights (id) ON DELETE CASCADE
       )
     ''');
 

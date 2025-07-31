@@ -44,7 +44,7 @@ class _ArticleReadingScreenState extends State<ArticleReadingScreen> {
 
     // Initialize annotation service
     ArticleAnnotationService().initializeTables();
-    
+
     // Mark article as read and load annotations
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ArticleProvider>().markAsRead(widget.article.id);
@@ -103,7 +103,7 @@ class _ArticleReadingScreenState extends State<ArticleReadingScreen> {
                 // Highlight color picker overlay
                 if (annotationProvider.selectedText != null)
                   Positioned(
-                    bottom: _showNotesPanel ? MediaQuery.of(context).size.height * 0.6 + 20 : 100,
+                    bottom: 100,
                     left: 16,
                     right: 16,
                     child: HighlightColorPicker(
@@ -122,17 +122,9 @@ class _ArticleReadingScreenState extends State<ArticleReadingScreen> {
                     height: MediaQuery.of(context).size.height * 0.6,
                     child: ArticleNotesPanel(articleId: widget.article.id),
                   ),
-                // Floating Action Buttons - positioned to avoid notes panel
-                if (!_showNotesPanel) // Only show FABs when notes panel is closed
-                  Positioned(
-                    bottom: 16,
-                    right: 16,
-                    child: _buildFloatingActionButtons(context),
-                  ),
               ],
             ),
-            // Remove default FAB positioning when notes panel might be open
-            floatingActionButton: null,
+            floatingActionButton: _buildFloatingActionButtons(context),
           );
         },
       ),
@@ -189,7 +181,7 @@ class _ArticleReadingScreenState extends State<ArticleReadingScreen> {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(
-                  annotationProvider.isEditMode 
+                  annotationProvider.isEditMode
                     ? 'Edit mode enabled - Tap text to highlight'
                     : 'Edit mode disabled',
                 ),
@@ -295,24 +287,24 @@ class _ArticleReadingScreenState extends State<ArticleReadingScreen> {
             isEditMode: annotationProvider.isEditMode,
           ),
           const SizedBox(height: 16),
-          
+
           // Article metadata
           _buildMetadata(context, settings),
-          
+
           // Summary section
           if (_isLoadingSummary || _summary != null)
             _buildSummary(context, settings),
 
           const SizedBox(height: 24),
-          
+
           // Article content with highlighting
           _buildContent(context, settings, annotationProvider),
-          
+
           const SizedBox(height: 32),
-          
+
           // Read original button
           _buildReadOriginalButton(context),
-          
+
           const SizedBox(height: 100), // Extra space for FAB
         ],
       ),
@@ -426,14 +418,14 @@ class _ArticleReadingScreenState extends State<ArticleReadingScreen> {
       builder: (context, articleProvider, child) {
         final article = articleProvider.getArticleById(widget.article.id) ?? widget.article;
         final isLoadingFull = articleProvider.isLoadingFullArticle(widget.article.id);
-        
+
         String displayContent;
         if (_showFullContent && article.fullContent != null && article.fullContent!.isNotEmpty) {
-          displayContent = _cleanContent(article.fullContent!); // Convert HTML to plain text for highlighting
+          displayContent = article.fullContent!;
         } else {
           displayContent = article.content ?? article.description;
         }
-        
+
         if (displayContent.isEmpty) {
           return Container(
             padding: const EdgeInsets.all(24),
@@ -483,43 +475,40 @@ class _ArticleReadingScreenState extends State<ArticleReadingScreen> {
                   ],
                 ),
               ),
-            
-            // Content type indicator
-            if (_showFullContent && article.fullContent != null && article.fullContent!.isNotEmpty)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                margin: const EdgeInsets.only(bottom: 16),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primaryContainer,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.article, size: 16, color: Theme.of(context).colorScheme.onPrimaryContainer),
-                    const SizedBox(width: 6),
-                    Text(
-                      'Full Article',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onPrimaryContainer,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
 
-            // Always use HighlightableText for both regular and full content
-            HighlightableText(
-              text: _cleanContent(displayContent),
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                fontSize: settings.fontSize,
-                height: 1.6,
-                color: _getTextColor(context, settings),
+            // Use HighlightableText for content with highlighting support
+            if (_showFullContent && article.fullContent != null && article.fullContent!.isNotEmpty)
+              Html(
+                data: article.fullContent!,
+                style: {
+                  "body": Style(
+                    fontSize: FontSize(settings.fontSize),
+                    lineHeight: LineHeight(1.6),
+                    color: _getTextColor(context, settings),
+                  ),
+                  "p": Style(
+                    fontSize: FontSize(settings.fontSize),
+                    lineHeight: LineHeight(1.6),
+                    margin: Margins.only(bottom: 12),
+                  ),
+                },
+                onLinkTap: (url, _, __) {
+                  if (url != null) {
+                    launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+                  }
+                },
+              )
+            else
+              HighlightableText(
+                text: _cleanContent(displayContent),
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  fontSize: settings.fontSize,
+                  height: 1.6,
+                  color: _getTextColor(context, settings),
+                ),
+                highlights: annotationProvider.highlights,
+                isEditMode: annotationProvider.isEditMode,
               ),
-              highlights: annotationProvider.highlights,
-              isEditMode: annotationProvider.isEditMode,
-            ),
           ],
         );
       },
@@ -532,7 +521,7 @@ class _ArticleReadingScreenState extends State<ArticleReadingScreen> {
         final article = articleProvider.getArticleById(widget.article.id) ?? widget.article;
         final isLoadingFull = articleProvider.isLoadingFullArticle(widget.article.id);
         final hasFullContent = article.fullContent != null && article.fullContent!.isNotEmpty;
-        
+
         return Center(
           child: Column(
             children: [

@@ -45,3 +45,10 @@ app.*.map.json
 /android/app/release
 .to-do
 oldCode/
+
+# VS Code settings
+.vscode/
+# VS Code workspace storage
+.vscode-test/
+
+# Xcode related

@@ -1,5 +1,5 @@
 // Enhanced article extraction test
-import 'lib/services/enhanced_article_service.dart';
+import '../../lib/services/enhanced_article_service.dart';
 
 void main() async {
   print('Testing enhanced article extraction...');

@@ -24,13 +24,25 @@ class _FeedManagementScreenState extends State<FeedManagementScreen> {
   String _selectedCategory = 'all';
   bool _isSelectionMode = false;
   Set<String> _selectedFeedIds = <String>{};
-  
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<FeedProvider>().loadFeeds();
     });
+    _searchController.addListener(() {
+      setState(() {
+        _searchQuery = _searchController.text.toLowerCase();
+      });
+    });
+  }
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   @override
@@ -52,6 +64,24 @@ class _FeedManagementScreenState extends State<FeedManagementScreen> {
         children: [
           // Category filter
           _buildCategoryFilter(),
+          // Search bar
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                labelText: 'Search Feeds',
+                border: const OutlineInputBorder(),
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.clear),
+                  onPressed: () {
+                    _searchController.clear();
+                    FocusScope.of(context).unfocus();
+                  },
+                ),
+              ),
+            ),
+          ),
           // Feed list
           Expanded(
             child: _buildFeedList(),
@@ -394,7 +424,12 @@ class _FeedManagementScreenState extends State<FeedManagementScreen> {
             ? feedProvider.feeds 
             : feedProvider.getFeedsByCategory(_selectedCategory);
 
-        if (feeds.isEmpty) {
+        final filteredFeeds = feeds.where((feed) {
+          return feed.title.toLowerCase().contains(_searchQuery) ||
+                 feed.url.toLowerCase().contains(_searchQuery);
+        }).toList();
+
+        if (filteredFeeds.isEmpty) {
           return EmptyState(
             icon: Icons.rss_feed,
             title: 'No feeds found',
@@ -405,9 +440,9 @@ class _FeedManagementScreenState extends State<FeedManagementScreen> {
         }
 
         return ListView.builder(
-          itemCount: feeds.length,
+          itemCount: filteredFeeds.length,
           itemBuilder: (context, index) {
-            final feed = feeds[index];
+            final feed = filteredFeeds[index];
             return _buildFeedCard(feed);
           },
         );
