@@ -19,6 +19,7 @@ class SettingsProvider with ChangeNotifier {
   static const String providerGemini = 'gemini';
   static const String providerClaude = 'claude';
   static const String providerPerplexity = 'perplexity';
+  static const String providerNvidia = 'nvidia';
   static const String aiProviderKey = 'ai_provider';
   static const String preferredProviderKey = 'preferred_ai_provider'; // Add preferred provider
   static const String enabledProvidersKey = 'enabled_ai_providers'; // Add enabled providers list
@@ -28,6 +29,15 @@ class SettingsProvider with ChangeNotifier {
   static const String geminiKey = 'gemini_api_key';
   static const String claudeKey = 'claude_api_key';
   static const String perplexityKey = 'perplexity_api_key';
+  static const String nvidiaKey = 'nvidia_api_key';
+
+  // Model selection keys
+  static const String openaiModelKey = 'openai_model';
+  static const String openrouterModelKey = 'openrouter_model';
+  static const String geminiModelKey = 'gemini_model';
+  static const String claudeModelKey = 'claude_model';
+  static const String perplexityModelKey = 'perplexity_model';
+  static const String nvidiaModelKey = 'nvidia_model';
 
   SharedPreferences? _prefs;
   
@@ -50,6 +60,15 @@ class SettingsProvider with ChangeNotifier {
   String _geminiApiKey = '';
   String _claudeApiKey = '';
   String _perplexityApiKey = '';
+  String _nvidiaApiKey = '';
+
+  // Model selection fields
+  String _openaiModel = 'gpt-4o-mini';
+  String _openrouterModel = 'google/gemini-flash-1.5-8b';
+  String _geminiModel = 'gemini-1.5-flash';
+  String _claudeModel = 'claude-3-5-haiku-20241022';
+  String _perplexityModel = 'llama-3.1-8b-instruct';
+  String _nvidiaModel = 'nvidia/llama-3.1-405b-instruct';
 
   // Getters
   ThemeMode get themeMode => _themeMode;
@@ -69,6 +88,57 @@ class SettingsProvider with ChangeNotifier {
   String get geminiApiKey => _geminiApiKey;
   String get claudeApiKey => _claudeApiKey;
   String get perplexityApiKey => _perplexityApiKey;
+  String get nvidiaApiKey => _nvidiaApiKey;
+
+  // Model selection getters
+  String get openaiModel => _openaiModel;
+  String get openrouterModel => _openrouterModel;
+  String get geminiModel => _geminiModel;
+  String get claudeModel => _claudeModel;
+  String get perplexityModel => _perplexityModel;
+  String get nvidiaModel => _nvidiaModel;
+
+  String getModelForProvider(String provider) {
+    switch (provider) {
+      case providerOpenAI:
+        return _openaiModel;
+      case providerOpenRouter:
+        return _openrouterModel;
+      case providerGemini:
+        return _geminiModel;
+      case providerClaude:
+        return _claudeModel;
+      case providerPerplexity:
+        return _perplexityModel;
+      case providerNvidia:
+        return _nvidiaModel;
+      default:
+        return '';
+    }
+  }
+
+  Future<void> setModelForProvider(String provider, String model) async {
+    switch (provider) {
+      case providerOpenAI:
+        await setOpenaiModel(model);
+        break;
+      case providerOpenRouter:
+        await setOpenrouterModel(model);
+        break;
+      case providerGemini:
+        await setGeminiModel(model);
+        break;
+      case providerClaude:
+        await setClaudeModel(model);
+        break;
+      case providerPerplexity:
+        await setPerplexityModel(model);
+        break;
+      case providerNvidia:
+        await setNvidiaModel(model);
+        break;
+    }
+  }
 
   // Check if a provider is configured (has API key)
   bool isProviderConfigured(String provider) {
@@ -83,6 +153,8 @@ class SettingsProvider with ChangeNotifier {
         return _claudeApiKey.isNotEmpty;
       case providerPerplexity:
         return _perplexityApiKey.isNotEmpty;
+      case providerNvidia:
+        return _nvidiaApiKey.isNotEmpty;
       default:
         return false;
     }
@@ -159,6 +231,15 @@ class SettingsProvider with ChangeNotifier {
     _geminiApiKey = _prefs!.getString(geminiKey) ?? '';
     _claudeApiKey = _prefs!.getString(claudeKey) ?? '';
     _perplexityApiKey = _prefs!.getString(perplexityKey) ?? '';
+    _nvidiaApiKey = _prefs!.getString(nvidiaKey) ?? '';
+
+    // Load models
+    _openaiModel = _prefs!.getString(openaiModelKey) ?? 'gpt-4o-mini';
+    _openrouterModel = _prefs!.getString(openrouterModelKey) ?? 'google/gemini-flash-1.5-8b';
+    _geminiModel = _prefs!.getString(geminiModelKey) ?? 'gemini-1.5-flash';
+    _claudeModel = _prefs!.getString(claudeModelKey) ?? 'claude-3-5-haiku-20241022';
+    _perplexityModel = _prefs!.getString(perplexityModelKey) ?? 'llama-3.1-8b-instruct';
+    _nvidiaModel = _prefs!.getString(nvidiaModelKey) ?? 'nvidia/llama-3.1-405b-instruct';
 
     notifyListeners();
   }
@@ -263,6 +344,49 @@ class SettingsProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> setNvidiaApiKey(String key) async {
+    _nvidiaApiKey = key;
+    await _prefs?.setString(nvidiaKey, key);
+    notifyListeners();
+  }
+
+  // Model selection setters
+  Future<void> setOpenaiModel(String model) async {
+    _openaiModel = model;
+    await _prefs?.setString(openaiModelKey, model);
+    notifyListeners();
+  }
+
+  Future<void> setOpenrouterModel(String model) async {
+    _openrouterModel = model;
+    await _prefs?.setString(openrouterModelKey, model);
+    notifyListeners();
+  }
+
+  Future<void> setGeminiModel(String model) async {
+    _geminiModel = model;
+    await _prefs?.setString(geminiModelKey, model);
+    notifyListeners();
+  }
+
+  Future<void> setClaudeModel(String model) async {
+    _claudeModel = model;
+    await _prefs?.setString(claudeModelKey, model);
+    notifyListeners();
+  }
+
+  Future<void> setPerplexityModel(String model) async {
+    _perplexityModel = model;
+    await _prefs?.setString(perplexityModelKey, model);
+    notifyListeners();
+  }
+
+  Future<void> setNvidiaModel(String model) async {
+    _nvidiaModel = model;
+    await _prefs?.setString(nvidiaModelKey, model);
+    notifyListeners();
+  }
+
   // Set auto save summaries
   Future<void> setAutoSaveSummaries(bool enabled) async {
     _autoSaveSummaries = enabled;
@@ -329,6 +453,7 @@ class SettingsProvider with ChangeNotifier {
     const MapEntry(providerGemini, 'Gemini'),
     const MapEntry(providerClaude, 'Claude'),
     const MapEntry(providerPerplexity, 'Perplexity'),
+    const MapEntry(providerNvidia, 'Nvidia NIM'),
   ];
 
   // Reset all settings to default
@@ -351,6 +476,14 @@ class SettingsProvider with ChangeNotifier {
     _geminiApiKey = '';
     _claudeApiKey = '';
     _perplexityApiKey = '';
+    _nvidiaApiKey = '';
+
+    _openaiModel = 'gpt-4o-mini';
+    _openrouterModel = 'google/gemini-flash-1.5-8b';
+    _geminiModel = 'gemini-1.5-flash';
+    _claudeModel = 'claude-3-5-haiku-20241022';
+    _perplexityModel = 'llama-3.1-8b-instruct';
+    _nvidiaModel = 'nvidia/llama-3.1-405b-instruct';
 
     notifyListeners();
   }
@@ -374,6 +507,13 @@ class SettingsProvider with ChangeNotifier {
       geminiKey: _geminiApiKey,
       claudeKey: _claudeApiKey,
       perplexityKey: _perplexityApiKey,
+      nvidiaKey: _nvidiaApiKey,
+      openaiModelKey: _openaiModel,
+      openrouterModelKey: _openrouterModel,
+      geminiModelKey: _geminiModel,
+      claudeModelKey: _claudeModel,
+      perplexityModelKey: _perplexityModel,
+      nvidiaModelKey: _nvidiaModel,
     };
   }
 
@@ -401,6 +541,13 @@ class SettingsProvider with ChangeNotifier {
         case geminiKey:
         case claudeKey:
         case perplexityKey:
+        case nvidiaKey:
+        case openaiModelKey:
+        case openrouterModelKey:
+        case geminiModelKey:
+        case claudeModelKey:
+        case perplexityModelKey:
+        case nvidiaModelKey:
           await _prefs!.setString(entry.key, entry.value);
           break;
         case enabledProvidersKey:

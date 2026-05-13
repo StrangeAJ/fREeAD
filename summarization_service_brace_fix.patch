@@ -1,0 +1,26 @@
+<<<<<<< SEARCH
+    return response.data['choices'][0]['message']['content'] as String;
+  }
+}
+
+  Future<List<String>> fetchAvailableModels(String provider, String apiKey) async {
+=======
+    return response.data['choices'][0]['message']['content'] as String;
+  }
+
+  Future<List<String>> fetchAvailableModels(String provider, String apiKey) async {
+>>>>>>> REPLACE
+<<<<<<< SEARCH
+    } catch (e) {
+      print('Error fetching models for $provider: $e');
+      return [];
+    }
+  }
+=======
+    } catch (e) {
+      print('Error fetching models for $provider: $e');
+      return [];
+    }
+  }
+}
+>>>>>>> REPLACE
