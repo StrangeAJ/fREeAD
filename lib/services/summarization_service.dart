@@ -132,17 +132,20 @@ class SummarizationService implements Summarizer {
         final prefs = await SharedPreferences.getInstance();
         final apiKey = prefs.getString(_getKeyForProvider(currentProvider)) ?? '';
 
+        final model = settingsProvider.getModelForProvider(currentProvider);
         switch (currentProvider) {
           case SettingsProvider.providerOpenAI:
-            return await _summarizeOpenAI(text, apiKey);
+            return await _summarizeOpenAI(text, apiKey, model);
           case SettingsProvider.providerOpenRouter:
-            return await _summarizeOpenRouter(text, apiKey);
+            return await _summarizeOpenRouter(text, apiKey, model);
           case SettingsProvider.providerClaude:
-            return await _summarizeClaude(text, apiKey);
+            return await _summarizeClaude(text, apiKey, model);
           case SettingsProvider.providerGemini:
-            return await _summarizeGemini(text, apiKey);
+            return await _summarizeGemini(text, apiKey, model);
           case SettingsProvider.providerPerplexity:
-            return await _summarizePerplexity(text, apiKey);
+            return await _summarizePerplexity(text, apiKey, model);
+          case SettingsProvider.providerNvidia:
+            return await _summarizeNvidia(text, apiKey, model);
           default:
             throw Exception('Provider $currentProvider not supported');
         }
@@ -186,19 +189,21 @@ class SummarizationService implements Summarizer {
         return SettingsProvider.claudeKey;
       case SettingsProvider.providerPerplexity:
         return SettingsProvider.perplexityKey;
+      case SettingsProvider.providerNvidia:
+        return SettingsProvider.nvidiaKey;
       default:
         return SettingsProvider.openaiKey;
     }
   }
 
-  Future<String> _summarizeOpenAI(String text, String apiKey) async {
+  Future<String> _summarizeOpenAI(String text, String apiKey, String model) async {
     const url = 'https://api.openai.com/v1/chat/completions';
     final response = await _dio.post(url,
       options: Options(
         headers: {'Authorization': 'Bearer $apiKey'},
       ),
       data: {
-        'model': 'gpt-4.1-nano',
+        'model': model.isNotEmpty ? model : 'gpt-4o-mini',
         'messages': [
           {'role': 'system', 'content': 'Summarize the following text in a concise, clear manner.'},
           {'role': 'user', 'content': text},
@@ -211,12 +216,12 @@ class SummarizationService implements Summarizer {
     return content as String;
   }
 
-  Future<String> _summarizeOpenRouter(String text, String apiKey) async {
+  Future<String> _summarizeOpenRouter(String text, String apiKey, String model) async {
     const url = 'https://openrouter.ai/api/v1/chat/completions';
     final response = await _dio.post(url,
       options: Options(headers: {'Authorization': 'Bearer $apiKey'}),
       data: {
-        'model': 'gpt-3.5-turbo',
+        'model': model.isNotEmpty ? model : 'google/gemini-flash-1.5-8b',
         'messages': [
           {'role': 'system', 'content': 'Summarize the following text.'},
           {'role': 'user', 'content': text},
@@ -226,7 +231,7 @@ class SummarizationService implements Summarizer {
     return response.data['choices'][0]['message']['content'] as String;
   }
 
-  Future<String> _summarizeClaude(String text, String apiKey) async {
+  Future<String> _summarizeClaude(String text, String apiKey, String model) async {
     const url = 'https://api.anthropic.com/v1/messages';
 
     try {
@@ -237,7 +242,7 @@ class SummarizationService implements Summarizer {
           'content-type': 'application/json',
         }),
         data: {
-          'model': 'claude-3-haiku-20240307', // Use the requested Claude 3 Haiku model
+          'model': model.isNotEmpty ? model : 'claude-3-5-haiku-20241022',
           'max_tokens': 1000,
           'messages': [
             {
@@ -277,8 +282,9 @@ class SummarizationService implements Summarizer {
   }
 
   // Fix Gemini summarization to use proper Google AI API
-  Future<String> _summarizeGemini(String text, String apiKey) async {
-    const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
+  Future<String> _summarizeGemini(String text, String apiKey, String model) async {
+    final modelName = model.isNotEmpty ? model : 'gemini-1.5-flash';
+    final url = 'https://generativelanguage.googleapis.com/v1beta/models/$modelName:generateContent';
     final response = await _dio.post(url,
       options: Options(headers: {
         'x-goog-api-key': apiKey,
@@ -295,7 +301,7 @@ class SummarizationService implements Summarizer {
     return response.data['candidates'][0]['content']['parts'][0]['text'] as String;
   }
 
-  Future<String> _summarizePerplexity(String text, String apiKey) async {
+  Future<String> _summarizePerplexity(String text, String apiKey, String model) async {
     const url = 'https://api.perplexity.ai/chat/completions';
     final response = await _dio.post(url,
       options: Options(headers: {
@@ -303,7 +309,7 @@ class SummarizationService implements Summarizer {
         'Content-Type': 'application/json',
       }),
       data: {
-        'model': 'sonar',
+        'model': model.isNotEmpty ? model : 'llama-3.1-8b-instruct',
         'messages': [
           {'role': 'user', 'content': 'Please provide a concise summary of the following text:\n\n$text'}
         ],
@@ -312,5 +318,61 @@ class SummarizationService implements Summarizer {
       },
     );
     return response.data['choices'][0]['message']['content'] as String;
+  }
+
+  Future<String> _summarizeNvidia(String text, String apiKey, String model) async {
+    const url = 'https://integrate.api.nvidia.com/v1/chat/completions';
+    final response = await _dio.post(url,
+      options: Options(headers: {
+        'Authorization': 'Bearer $apiKey',
+        'Content-Type': 'application/json',
+      }),
+      data: {
+        'model': model.isNotEmpty ? model : 'nvidia/llama-3.1-405b-instruct',
+        'messages': [
+          {'role': 'user', 'content': 'Please provide a concise summary of the following text:\n\n$text'}
+        ],
+        'max_tokens': 300,
+        'temperature': 0.3,
+      },
+    );
+    return response.data['choices'][0]['message']['content'] as String;
+  }
+
+  Future<List<String>> fetchAvailableModels(String provider, String apiKey) async {
+    try {
+      String url = '';
+      Map<String, dynamic> headers = {};
+
+      switch (provider) {
+        case SettingsProvider.providerOpenAI:
+          url = 'https://api.openai.com/v1/models';
+          headers = {'Authorization': 'Bearer $apiKey'};
+          break;
+        case SettingsProvider.providerOpenRouter:
+          url = 'https://openrouter.ai/api/v1/models';
+          headers = {'Authorization': 'Bearer $apiKey'};
+          break;
+        case SettingsProvider.providerNvidia:
+          url = 'https://integrate.api.nvidia.com/v1/models';
+          headers = {'Authorization': 'Bearer $apiKey'};
+          break;
+        default:
+          return [];
+      }
+
+      final response = await _dio.get(url, options: Options(headers: headers));
+      final List<dynamic> data = response.data['data'];
+
+      if (provider == SettingsProvider.providerOpenRouter) {
+        return data.map((m) => m['id'] as String).toList();
+      } else {
+        // Filter for chat models if possible, otherwise return all
+        return data.map((m) => m['id'] as String).toList();
+      }
+    } catch (e) {
+      print('Error fetching models for $provider: $e');
+      return [];
+    }
   }
 }

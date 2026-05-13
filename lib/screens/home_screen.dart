@@ -1106,6 +1106,10 @@ class SettingsTab extends StatelessWidget {
                           ),
                           onChanged: (value) => _updateApiKey(settings, provider.key, value),
                         ),
+                        if (isConfigured) ...[
+                          const SizedBox(height: 12),
+                          _buildModelSelection(context, settings, provider.key, apiKey),
+                        ],
                       ],
                     ),
                   ),
@@ -1408,6 +1412,8 @@ class SettingsTab extends StatelessWidget {
         return settings.openrouterApiKey;
       case 'perplexity':
         return settings.perplexityApiKey;
+      case 'nvidia':
+        return settings.nvidiaApiKey;
       default:
         return '';
     }
@@ -1428,6 +1434,8 @@ class SettingsTab extends StatelessWidget {
         return Icons.computer;
       case 'perplexity':
         return Icons.api;
+      case 'nvidia':
+        return Icons.memory;
       default:
         return Icons.api;
     }
@@ -1457,6 +1465,104 @@ class SettingsTab extends StatelessWidget {
       case 'perplexity':
         settings.setPerplexityApiKey(value);
         break;
+      case 'nvidia':
+        settings.setNvidiaApiKey(value);
+        break;
+    }
+  }
+
+  Widget _buildModelSelection(BuildContext context, SettingsProvider settings, String provider, String apiKey) {
+    final currentModel = settings.getModelForProvider(provider);
+
+    return Row(
+      children: [
+        const Text('Model: ', style: TextStyle(fontWeight: FontWeight.w500)),
+        Expanded(
+          child: InkWell(
+            onTap: () => _showModelPickerDialog(context, settings, provider, apiKey),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.5)),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      currentModel,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: Theme.of(context).colorScheme.primary),
+                    ),
+                  ),
+                  const Icon(Icons.arrow_drop_down, size: 20),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showModelPickerDialog(BuildContext context, SettingsProvider settings, String provider, String apiKey) async {
+    final summarizationService = SummarizationService();
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    List<String> models = await summarizationService.fetchAvailableModels(provider, apiKey);
+
+    if (context.mounted) Navigator.pop(context);
+
+    if (models.isEmpty) {
+      // Fallback or static list if fetch fails or not implemented for provider
+      if (provider == 'claude') {
+        models = ['claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022', 'claude-3-opus-20240229', 'claude-3-haiku-20240307'];
+      } else if (provider == 'gemini') {
+        models = ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-1.5-flash-8b'];
+      } else if (provider == 'perplexity') {
+        models = ['llama-3.1-sonar-small-128k-online', 'llama-3.1-sonar-large-128k-online', 'llama-3.1-8b-instruct', 'llama-3.1-70b-instruct'];
+      }
+    }
+
+    if (models.isEmpty) {
+       if (context.mounted) {
+         ScaffoldMessenger.of(context).showSnackBar(
+           const SnackBar(content: Text('Failed to fetch models or provider not supported for dynamic list.'))
+         );
+       }
+       return;
+    }
+
+    if (context.mounted) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text('Select Model for ${provider.toUpperCase()}'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: models.length,
+              itemBuilder: (context, index) {
+                final model = models[index];
+                return ListTile(
+                  title: Text(model),
+                  selected: model == settings.getModelForProvider(provider),
+                  onTap: () {
+                    settings.setModelForProvider(provider, model);
+                    Navigator.pop(context);
+                  },
+                );
+              },
+            ),
+          ),
+        ),
+      );
     }
   }
 }
