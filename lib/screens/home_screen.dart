@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/feed_provider.dart';
 import '../providers/article_provider.dart';
 import '../providers/settings_provider.dart';
+import '../services/summarization_service.dart';
 import '../screens/article_reading_screen.dart';
 import '../screens/feed_management_screen.dart';
 import '../screens/category_articles_screen.dart';
@@ -1506,7 +1507,7 @@ class SettingsTab extends StatelessWidget {
   }
 
   void _showModelPickerDialog(BuildContext context, SettingsProvider settings, String provider, String apiKey) async {
-    final summarizationService = SummarizationService();
+    final summarizationService = context.read<SummarizationService>();
 
     showDialog(
       context: context,
