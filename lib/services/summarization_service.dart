@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:freead/services/on_device_ai_service.dart';
 import '../providers/settings_provider.dart';
 import '../models/article.dart';
 import 'database_service.dart';

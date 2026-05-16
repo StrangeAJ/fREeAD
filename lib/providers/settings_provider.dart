@@ -22,6 +22,7 @@ class SettingsProvider with ChangeNotifier {
   static const String providerNvidia = 'nvidia';
   static const String aiProviderKey = 'ai_provider';
   static const String preferredProviderKey = 'preferred_ai_provider'; // Add preferred provider
+  static const String preferOnDeviceAiKey = 'preferOnDeviceAi';
   static const String enabledProvidersKey = 'enabled_ai_providers'; // Add enabled providers list
   static const String autoSaveSummariesKey = 'auto_save_summaries'; // Add auto save summaries setting
   static const String openaiKey = 'openai_api_key';
@@ -52,7 +53,8 @@ class SettingsProvider with ChangeNotifier {
 
   // Add fields
   String _aiProvider = providerNone;
-  String _preferredProvider = providerNone; // Add preferred provider field
+  String _preferredProvider = providerNone;
+  bool _preferOnDeviceAi = false; // Add preferred provider field
   List<String> _enabledProviders = []; // Add enabled providers list
   bool _autoSaveSummaries = true; // Add auto save summaries field (default on)
   String _openaiApiKey = '';
@@ -81,6 +83,7 @@ class SettingsProvider with ChangeNotifier {
   bool get imageLoadingEnabled => _imageLoadingEnabled;
   String get aiProvider => _aiProvider;
   String get preferredProvider => _preferredProvider;
+  bool get preferOnDeviceAi => _preferOnDeviceAi;
   List<String> get enabledProviders => _enabledProviders;
   bool get autoSaveSummaries => _autoSaveSummaries; // Add getter for auto save summaries
   String get openaiApiKey => _openaiApiKey;
@@ -220,6 +223,7 @@ class SettingsProvider with ChangeNotifier {
     // AI provider settings
     _aiProvider = _prefs!.getString(aiProviderKey) ?? providerNone;
     _preferredProvider = _prefs!.getString(preferredProviderKey) ?? providerNone;
+    _preferOnDeviceAi = _prefs!.getBool(preferOnDeviceAiKey) ?? false;
     _autoSaveSummaries = _prefs!.getBool(autoSaveSummariesKey) ?? true; // Load auto save summaries setting
 
     // Load enabled providers list
@@ -310,6 +314,12 @@ class SettingsProvider with ChangeNotifier {
   Future<void> setPreferredProvider(String provider) async {
     _preferredProvider = provider;
     await _prefs?.setString(preferredProviderKey, provider);
+    notifyListeners();
+  }
+
+  Future<void> setPreferOnDeviceAi(bool prefer) async {
+    _preferOnDeviceAi = prefer;
+    await _prefs?.setBool(preferOnDeviceAiKey, prefer);
     notifyListeners();
   }
 
@@ -470,6 +480,7 @@ class SettingsProvider with ChangeNotifier {
     _imageLoadingEnabled = true;
     _aiProvider = providerNone;
     _preferredProvider = providerNone;
+    _preferOnDeviceAi = false;
     _enabledProviders = [];
     _openaiApiKey = '';
     _openrouterApiKey = '';
@@ -501,6 +512,7 @@ class SettingsProvider with ChangeNotifier {
       _imageLoadingKey: _imageLoadingEnabled,
       aiProviderKey: _aiProvider,
       preferredProviderKey: _preferredProvider,
+      preferOnDeviceAiKey: _preferOnDeviceAi,
       enabledProvidersKey: _enabledProviders,
       openaiKey: _openaiApiKey,
       openrouterKey: _openrouterApiKey,
