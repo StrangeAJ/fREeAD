@@ -23,8 +23,6 @@ class HighlightableText extends StatefulWidget {
 }
 
 class _HighlightableTextState extends State<HighlightableText> {
-  int? _selectionStart;
-  int? _selectionEnd;
   OverlayEntry? _selectionOverlay;
 
   @override
@@ -67,18 +65,10 @@ class _HighlightableTextState extends State<HighlightableText> {
       // Set the selection in the provider
       provider.setSelection(selectedText.trim(), selection.start, selection.end);
 
-      setState(() {
-        _selectionStart = selection.start;
-        _selectionEnd = selection.end;
-      });
     } else {
       // Clear selection if nothing is selected
       provider.clearSelection();
       _removeSelectionOverlay();
-      setState(() {
-        _selectionStart = null;
-        _selectionEnd = null;
-      });
     }
   }
 
