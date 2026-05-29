@@ -14,7 +14,7 @@ class SummarizationService implements Summarizer {
   factory SummarizationService() => _instance;
   SummarizationService._internal();
 
-  final Dio _dio = Dio();
+  final Dio _dio = Dio(BaseOptions(connectTimeout: const Duration(seconds: 30), receiveTimeout: const Duration(seconds: 30)));
   final DatabaseService _databaseService = DatabaseService();
   static DateTime? _lastRequest;
   static const Duration _requestDelay = Duration(seconds: 2);
@@ -39,12 +39,29 @@ class SummarizationService implements Summarizer {
     final settingsProvider = SettingsProvider();
     await settingsProvider.init();
 
+    // Check for on-device AI preference first
+    if (settingsProvider.preferOnDeviceAi) {
+      final onDeviceAI = OnDeviceAIService();
+      if (await onDeviceAI.isAvailable()) {
+        try {
+          return await onDeviceAI.summarize(text);
+        } catch (e) {
+          print('On-device AI failed, falling back to cloud: $e');
+        }
+      }
+    }
+
     String providerToUse = preferredProvider;
     if (preferredProvider == SettingsProvider.providerNone || !settingsProvider.isProviderConfigured(preferredProvider)) {
       providerToUse = currentProvider;
     }
 
     if (providerToUse == SettingsProvider.providerNone) {
+      // If no cloud provider configured, try on-device AI as last resort
+      final onDeviceAI = OnDeviceAIService();
+      if (await onDeviceAI.isAvailable()) {
+        return await onDeviceAI.summarize(text);
+      }
       throw Exception('Please configure at least one AI provider in Settings → AI Models');
     }
 
@@ -220,7 +237,11 @@ class SummarizationService implements Summarizer {
   Future<String> _summarizeOpenRouter(String text, String apiKey, String model) async {
     const url = 'https://openrouter.ai/api/v1/chat/completions';
     final response = await _dio.post(url,
-      options: Options(headers: {'Authorization': 'Bearer $apiKey'}),
+      options: Options(headers: {
+        'Authorization': 'Bearer $apiKey',
+        'HTTP-Referer': 'https://github.com/freead/freead',
+        'X-Title': 'FreeAd RSS Reader',
+      }),
       data: {
         'model': model.isNotEmpty ? model : 'google/gemini-flash-1.5-8b',
         'messages': [
@@ -285,10 +306,9 @@ class SummarizationService implements Summarizer {
   // Fix Gemini summarization to use proper Google AI API
   Future<String> _summarizeGemini(String text, String apiKey, String model) async {
     final modelName = model.isNotEmpty ? model : 'gemini-1.5-flash';
-    final url = 'https://generativelanguage.googleapis.com/v1beta/models/$modelName:generateContent';
+    final url = 'https://generativelanguage.googleapis.com/v1beta/models/$modelName:generateContent?key=$apiKey';
     final response = await _dio.post(url,
       options: Options(headers: {
-        'x-goog-api-key': apiKey,
         'Content-Type': 'application/json'
       }),
       data: {
