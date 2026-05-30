@@ -1,5 +1,6 @@
-import 'package:flutter/foundation.dart';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class SettingsProvider with ChangeNotifier {
@@ -41,6 +42,7 @@ class SettingsProvider with ChangeNotifier {
   static const String nvidiaModelKey = 'nvidia_model';
 
   SharedPreferences? _prefs;
+  final _secureStorage = const FlutterSecureStorage();
   
   ThemeMode _themeMode = ThemeMode.system;
   double _fontSize = 16.0;
@@ -100,6 +102,25 @@ class SettingsProvider with ChangeNotifier {
   String get claudeModel => _claudeModel;
   String get perplexityModel => _perplexityModel;
   String get nvidiaModel => _nvidiaModel;
+
+  String getApiKeyForProvider(String provider) {
+    switch (provider) {
+      case providerOpenAI:
+        return _openaiApiKey;
+      case providerOpenRouter:
+        return _openrouterApiKey;
+      case providerGemini:
+        return _geminiApiKey;
+      case providerClaude:
+        return _claudeApiKey;
+      case providerPerplexity:
+        return _perplexityApiKey;
+      case providerNvidia:
+        return _nvidiaApiKey;
+      default:
+        return '';
+    }
+  }
 
   String getModelForProvider(String provider) {
     switch (provider) {
@@ -230,12 +251,12 @@ class SettingsProvider with ChangeNotifier {
     final enabledProvidersJson = _prefs!.getStringList(enabledProvidersKey) ?? [];
     _enabledProviders = enabledProvidersJson;
 
-    _openaiApiKey = _prefs!.getString(openaiKey) ?? '';
-    _openrouterApiKey = _prefs!.getString(openrouterKey) ?? '';
-    _geminiApiKey = _prefs!.getString(geminiKey) ?? '';
-    _claudeApiKey = _prefs!.getString(claudeKey) ?? '';
-    _perplexityApiKey = _prefs!.getString(perplexityKey) ?? '';
-    _nvidiaApiKey = _prefs!.getString(nvidiaKey) ?? '';
+    _openaiApiKey = await _loadOrMigrateSecureKey(openaiKey);
+    _openrouterApiKey = await _loadOrMigrateSecureKey(openrouterKey);
+    _geminiApiKey = await _loadOrMigrateSecureKey(geminiKey);
+    _claudeApiKey = await _loadOrMigrateSecureKey(claudeKey);
+    _perplexityApiKey = await _loadOrMigrateSecureKey(perplexityKey);
+    _nvidiaApiKey = await _loadOrMigrateSecureKey(nvidiaKey);
 
     // Load models
     _openaiModel = _prefs!.getString(openaiModelKey) ?? 'gpt-4o-mini';
@@ -246,6 +267,24 @@ class SettingsProvider with ChangeNotifier {
     _nvidiaModel = _prefs!.getString(nvidiaModelKey) ?? 'nvidia/llama-3.1-405b-instruct';
 
     notifyListeners();
+  }
+
+  Future<String> _loadOrMigrateSecureKey(String key) async {
+    // Try to read from secure storage
+    String? secureValue = await _secureStorage.read(key: key);
+
+    // If not in secure storage, check shared preferences for migration
+    if (secureValue == null || secureValue.isEmpty) {
+      final prefsValue = _prefs!.getString(key);
+      if (prefsValue != null && prefsValue.isNotEmpty) {
+        // Migrate to secure storage
+        await _secureStorage.write(key: key, value: prefsValue);
+        // Remove from shared preferences
+        await _prefs!.remove(key);
+        return prefsValue;
+      }
+    }
+    return secureValue ?? '';
   }
 
   // Set theme mode
@@ -326,37 +365,37 @@ class SettingsProvider with ChangeNotifier {
   // API Key setters
   Future<void> setOpenaiApiKey(String key) async {
     _openaiApiKey = key;
-    await _prefs?.setString(openaiKey, key);
+    await _secureStorage.write(key: openaiKey, value: key);
     notifyListeners();
   }
 
   Future<void> setOpenrouterApiKey(String key) async {
     _openrouterApiKey = key;
-    await _prefs?.setString(openrouterKey, key);
+    await _secureStorage.write(key: openrouterKey, value: key);
     notifyListeners();
   }
 
   Future<void> setGeminiApiKey(String key) async {
     _geminiApiKey = key;
-    await _prefs?.setString(geminiKey, key);
+    await _secureStorage.write(key: geminiKey, value: key);
     notifyListeners();
   }
 
   Future<void> setClaudeApiKey(String key) async {
     _claudeApiKey = key;
-    await _prefs?.setString(claudeKey, key);
+    await _secureStorage.write(key: claudeKey, value: key);
     notifyListeners();
   }
 
   Future<void> setPerplexityApiKey(String key) async {
     _perplexityApiKey = key;
-    await _prefs?.setString(perplexityKey, key);
+    await _secureStorage.write(key: perplexityKey, value: key);
     notifyListeners();
   }
 
   Future<void> setNvidiaApiKey(String key) async {
     _nvidiaApiKey = key;
-    await _prefs?.setString(nvidiaKey, key);
+    await _secureStorage.write(key: nvidiaKey, value: key);
     notifyListeners();
   }
 
@@ -489,6 +528,13 @@ class SettingsProvider with ChangeNotifier {
     _perplexityApiKey = '';
     _nvidiaApiKey = '';
 
+    await _secureStorage.delete(key: openaiKey);
+    await _secureStorage.delete(key: openrouterKey);
+    await _secureStorage.delete(key: geminiKey);
+    await _secureStorage.delete(key: claudeKey);
+    await _secureStorage.delete(key: perplexityKey);
+    await _secureStorage.delete(key: nvidiaKey);
+
     _openaiModel = 'gpt-4o-mini';
     _openrouterModel = 'google/gemini-flash-1.5-8b';
     _geminiModel = 'gemini-1.5-flash';
@@ -514,12 +560,6 @@ class SettingsProvider with ChangeNotifier {
       preferredProviderKey: _preferredProvider,
       preferOnDeviceAiKey: _preferOnDeviceAi,
       enabledProvidersKey: _enabledProviders,
-      openaiKey: _openaiApiKey,
-      openrouterKey: _openrouterApiKey,
-      geminiKey: _geminiApiKey,
-      claudeKey: _claudeApiKey,
-      perplexityKey: _perplexityApiKey,
-      nvidiaKey: _nvidiaApiKey,
       openaiModelKey: _openaiModel,
       openrouterModelKey: _openrouterModel,
       geminiModelKey: _geminiModel,
@@ -548,12 +588,6 @@ class SettingsProvider with ChangeNotifier {
         // AI provider and API key entries
         case preferredProviderKey:
         case aiProviderKey:
-        case openaiKey:
-        case openrouterKey:
-        case geminiKey:
-        case claudeKey:
-        case perplexityKey:
-        case nvidiaKey:
         case openaiModelKey:
         case openrouterModelKey:
         case geminiModelKey:
@@ -561,6 +595,14 @@ class SettingsProvider with ChangeNotifier {
         case perplexityModelKey:
         case nvidiaModelKey:
           await _prefs!.setString(entry.key, entry.value);
+          break;
+        case openaiKey:
+        case openrouterKey:
+        case geminiKey:
+        case claudeKey:
+        case perplexityKey:
+        case nvidiaKey:
+          await _secureStorage.write(key: entry.key, value: entry.value);
           break;
         case enabledProvidersKey:
           await _prefs!.setStringList(entry.key, List<String>.from(entry.value));

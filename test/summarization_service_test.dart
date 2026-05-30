@@ -2,10 +2,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:freead/services/summarization_service.dart';
 import 'package:freead/models/article.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   SharedPreferences.setMockInitialValues({});
+  FlutterSecureStorage.setMockInitialValues({});
 
   group('SummarizationService Tests', () {
     late SummarizationService summarizationService;
