@@ -3,20 +3,19 @@ import 'package:html/parser.dart' as html_parser;
 
 /// HTML to Markdown converter inspired by Turndown.js
 class HtmlToMarkdownConverter {
-  
   /// Convert HTML string to Markdown
   String convert(String html) {
     if (html.isEmpty) return '';
-    
+
     try {
       final document = html_parser.parse(html);
       final body = document.body;
-      
+
       if (body == null) return '';
-      
+
       // Clean up the HTML first
       _cleanupHtml(body);
-      
+
       // Convert to markdown
       return _convertNode(body).trim();
     } catch (e) {
@@ -24,18 +23,16 @@ class HtmlToMarkdownConverter {
       return html; // Return original HTML as fallback
     }
   }
-  
+
   /// Clean up HTML before conversion
   void _cleanupHtml(dom.Element element) {
     // Remove unwanted elements
-    final unwantedTags = ['script', 'style', 'nav', 'header', 'footer', 'aside'];
-    for (final tag in unwantedTags) {
-      final elements = element.querySelectorAll(tag);
-      for (final el in elements) {
-        el.remove();
-      }
+    final unwantedTags = 'script, style, nav, header, footer, aside';
+    final elements = element.querySelectorAll(unwantedTags);
+    for (final el in elements) {
+      el.remove();
     }
-    
+
     // Remove empty paragraphs
     final paragraphs = element.querySelectorAll('p');
     for (final p in paragraphs) {
@@ -44,11 +41,11 @@ class HtmlToMarkdownConverter {
       }
     }
   }
-  
+
   /// Convert a DOM node to Markdown
   String _convertNode(dom.Node node) {
     final buffer = StringBuffer();
-    
+
     if (node is dom.Text) {
       final text = node.text.trim();
       if (text.isNotEmpty) {
@@ -56,7 +53,7 @@ class HtmlToMarkdownConverter {
       }
     } else if (node is dom.Element) {
       final tagName = node.localName?.toLowerCase() ?? '';
-      
+
       switch (tagName) {
         case 'h1':
           buffer.write('\n# ${_getInnerText(node)}\n\n');
@@ -187,45 +184,45 @@ class HtmlToMarkdownConverter {
           break;
       }
     }
-    
+
     return buffer.toString();
   }
-  
+
   /// Convert child nodes of an element
   String _convertChildren(dom.Element element) {
     final buffer = StringBuffer();
-    
+
     for (final child in element.nodes) {
       buffer.write(_convertNode(child));
     }
-    
+
     return buffer.toString();
   }
-  
+
   /// Get inner text of an element
   String _getInnerText(dom.Element element) {
     return element.text.trim();
   }
-  
+
   /// Convert table to Markdown
   void _convertTable(dom.Element table, StringBuffer buffer) {
     final rows = table.querySelectorAll('tr');
-    
+
     if (rows.isEmpty) return;
-    
+
     var isFirstRow = true;
     for (final row in rows) {
       final cells = row.querySelectorAll('td, th');
-      
+
       if (cells.isEmpty) continue;
-      
+
       buffer.write('|');
       for (final cell in cells) {
         final content = _getInnerText(cell);
         buffer.write(' $content |');
       }
       buffer.write('\n');
-      
+
       // Add separator row after first row (header)
       if (isFirstRow) {
         buffer.write('|');
@@ -237,7 +234,7 @@ class HtmlToMarkdownConverter {
       }
     }
   }
-  
+
   /// Escape special Markdown characters (only when necessary)
   String _escapeMarkdown(String text) {
     // Only escape the most critical characters that would break Markdown parsing
