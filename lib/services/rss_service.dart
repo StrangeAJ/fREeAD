@@ -7,6 +7,15 @@ import '../models/article.dart';
 import '../models/rss_feed.dart';
 
 class RSSService {
+  // Pre-compiled regular expressions for date parsing optimization
+  static final RegExp _dayNameRegex = RegExp(r'[A-Za-z]{3},\s*');
+  static final RegExp _multipleSpacesRegex = RegExp(r'\s+');
+  static final List<RegExp> _dateFormats = [
+    RegExp(r'(\d{1,2})\s+(\w+)\s+(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})'),
+    RegExp(r'(\d{4})-(\d{2})-(\d{2})\s+(\d{1,2}):(\d{2}):(\d{2})'),
+    RegExp(r'(\d{1,2})/(\d{1,2})/(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})'),
+  ];
+
   final Dio _dio;
 
   RSSService() : _dio = Dio() {
@@ -477,13 +486,12 @@ class RSSService {
         // Example: "Mon, 01 Jan 2024 12:00:00 +0000"
         final cleanedDate = dateString
             .replaceAll(_dayNameRegex, '') // Remove day name
-            .replaceAll(_whitespaceRegex, ' ') // Normalize spaces
+            .replaceAll(_multipleSpacesRegex, ' ') // Normalize spaces
             .trim();
         
         return DateTime.parse(cleanedDate);
       } catch (e2) {
         try {
-          // Try parsing with common date formats
           for (final format in _dateFormats) {
             final match = format.firstMatch(dateString);
             if (match != null) {
