@@ -15,10 +15,10 @@ class ArticleProvider with ChangeNotifier {
   bool _isLoading = false;
   String? _error;
   String _currentFilter = 'all';
-  
+
   // Track loading state for full articles
   final Set<String> _loadingFullArticles = {};
-  
+
   // For web platform, store feeds in memory
   static List<String> _webFeeds = [];
 
@@ -29,19 +29,19 @@ class ArticleProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
   String get currentFilter => _currentFilter;
-  
+
   // Check if a full article is being loaded
   bool isLoadingFullArticle(String articleId) {
     return _loadingFullArticles.contains(articleId);
   }
-  
+
   // Add feed for web platform
   void addWebFeed(String url) {
     if (!_webFeeds.contains(url)) {
       _webFeeds.add(url);
     }
   }
-  
+
   // Static method to add web feed
   static void addWebFeedStatic(String url) {
     if (!_webFeeds.contains(url)) {
@@ -183,12 +183,16 @@ class ArticleProvider with ChangeNotifier {
       final feed = feeds.firstWhere((f) => f.id == feedId);
 
       // Fetch new articles for this feed
-      final articles = await compute(parseRSSFeedIsolate, {'url': feed.url, 'feedId': feedId});
+      final articles = await compute(parseRSSFeedIsolate, {
+        'url': feed.url,
+        'feedId': feedId,
+      });
 
       // Save new articles to database
-      for (final article in articles) {
-        await _databaseService.saveArticle(article.copyWith(feedId: feedId));
-      }
+      final updatedArticles = articles
+          .map((article) => article.copyWith(feedId: feedId))
+          .toList();
+      await _databaseService.insertArticlesBatch(updatedArticles);
 
       // Reload articles
       await loadArticles();
@@ -224,11 +228,14 @@ class ArticleProvider with ChangeNotifier {
   Future<void> refreshFeedArticles(String feedId, String feedUrl) async {
     _setLoading(true);
     try {
-      final newArticles = await compute(parseRSSFeedIsolate, {'url': feedUrl, 'feedId': feedId});
-      
+      final newArticles = await compute(parseRSSFeedIsolate, {
+        'url': feedUrl,
+        'feedId': feedId,
+      });
+
       // Batch insert new articles, ignoring duplicates for performance
       await _databaseService.insertArticlesBatch(newArticles);
-      
+
       // Reload articles
       await loadArticles();
       _error = null;
@@ -245,35 +252,38 @@ class ArticleProvider with ChangeNotifier {
     try {
       if (kIsWeb) {
         print('Refreshing articles for web platform');
-        
+
         // For web, use sample feeds plus user-added feeds
         final sampleFeeds = [
           'https://feeds.bbci.co.uk/news/rss.xml',
           'http://rss.cnn.com/rss/edition.rss',
           'https://www.nasa.gov/rss/dyn/mission_pages/kepler/news/news.rss',
         ];
-        
+
         final allFeeds = [...sampleFeeds, ..._webFeeds];
         print('Processing ${allFeeds.length} feeds: $allFeeds');
-        
+
         List<Article> newArticles = [];
-        
+
         for (final feedUrl in allFeeds) {
           try {
             print('Fetching articles from: $feedUrl');
-            final articles = await compute(parseRSSFeedIsolate, {'url': feedUrl, 'feedId': 'feed_${allFeeds.indexOf(feedUrl)}'});
+            final articles = await compute(parseRSSFeedIsolate, {
+              'url': feedUrl,
+              'feedId': 'feed_${allFeeds.indexOf(feedUrl)}',
+            });
             print('Got ${articles.length} articles from $feedUrl');
             newArticles.addAll(articles);
           } catch (e) {
             print('Error parsing feed $feedUrl: $e');
           }
         }
-        
+
         // Sort articles by published date (newest first)
         newArticles.sort((a, b) => b.publishedDate.compareTo(a.publishedDate));
-        
+
         print('Total articles loaded: ${newArticles.length}');
-        
+
         // Update the articles list
         _articles = newArticles;
         _savedArticles = _articles.where((a) => a.isSaved).toList();
@@ -296,7 +306,10 @@ class ArticleProvider with ChangeNotifier {
       final parseFutures = activeFeeds.map((feed) async {
         try {
           print('Refreshing feed: ${feed.title} (${feed.url})');
-          final articles = await compute(parseRSSFeedIsolate, {'url': feed.url, 'feedId': feed.id});
+          final articles = await compute(parseRSSFeedIsolate, {
+            'url': feed.url,
+            'feedId': feed.id,
+          });
           print('Got ${articles.length} articles from ${feed.title}');
           return articles;
         } catch (e) {
@@ -339,7 +352,7 @@ class ArticleProvider with ChangeNotifier {
         print('Default feeds already exist, skipping initialization');
         return;
       }
-      
+
       final defaultFeeds = [
         {
           'url': 'https://feeds.bbci.co.uk/news/rss.xml',
@@ -364,10 +377,15 @@ class ArticleProvider with ChangeNotifier {
       for (final feedData in defaultFeeds) {
         try {
           // Check if feed already exists
-          final existingFeed = await _databaseService.getFeedByUrl(feedData['url']!);
+          final existingFeed = await _databaseService.getFeedByUrl(
+            feedData['url']!,
+          );
           if (existingFeed == null) {
             final feed = RSSFeed(
-              id: DateTime.now().millisecondsSinceEpoch.toString() + '_' + feedData['url'].hashCode.toString(),
+              id:
+                  DateTime.now().millisecondsSinceEpoch.toString() +
+                  '_' +
+                  feedData['url'].hashCode.toString(),
               title: feedData['title']!,
               url: feedData['url']!,
               description: feedData['description']!,
@@ -376,7 +394,7 @@ class ArticleProvider with ChangeNotifier {
               dateAdded: DateTime.now(),
               lastUpdated: DateTime.now(),
             );
-            
+
             await _databaseService.insertFeed(feed);
             print('Added default feed: ${feed.title}');
           }
@@ -393,13 +411,13 @@ class ArticleProvider with ChangeNotifier {
   Future<bool> markAsRead(String articleId) async {
     try {
       await _databaseService.markArticleAsRead(articleId);
-      
+
       // Update local state
       final index = _articles.indexWhere((a) => a.id == articleId);
       if (index != -1) {
         _articles[index] = _articles[index].copyWith(isRead: true);
       }
-      
+
       notifyListeners();
       return true;
     } catch (e) {
@@ -413,22 +431,22 @@ class ArticleProvider with ChangeNotifier {
     try {
       final article = _articles.firstWhere((a) => a.id == articleId);
       final newSavedStatus = !article.isSaved;
-      
+
       await _databaseService.markArticleAsSaved(articleId, newSavedStatus);
-      
+
       // Update local state
       final index = _articles.indexWhere((a) => a.id == articleId);
       if (index != -1) {
         _articles[index] = _articles[index].copyWith(isSaved: newSavedStatus);
       }
-      
+
       // Update saved articles list
       if (newSavedStatus) {
         _savedArticles.add(_articles[index]);
       } else {
         _savedArticles.removeWhere((a) => a.id == articleId);
       }
-      
+
       notifyListeners();
       return true;
     } catch (e) {
@@ -442,22 +460,24 @@ class ArticleProvider with ChangeNotifier {
     try {
       final article = _articles.firstWhere((a) => a.id == articleId);
       final newStarredStatus = !article.isStarred;
-      
+
       await _databaseService.markArticleAsStarred(articleId, newStarredStatus);
-      
+
       // Update local state
       final index = _articles.indexWhere((a) => a.id == articleId);
       if (index != -1) {
-        _articles[index] = _articles[index].copyWith(isStarred: newStarredStatus);
+        _articles[index] = _articles[index].copyWith(
+          isStarred: newStarredStatus,
+        );
       }
-      
+
       // Update starred articles list
       if (newStarredStatus) {
         _starredArticles.add(_articles[index]);
       } else {
         _starredArticles.removeWhere((a) => a.id == articleId);
       }
-      
+
       notifyListeners();
       return true;
     } catch (e) {
@@ -485,12 +505,12 @@ class ArticleProvider with ChangeNotifier {
   Future<bool> deleteArticle(String articleId) async {
     try {
       await _databaseService.deleteArticle(articleId);
-      
+
       // Remove from local state
       _articles.removeWhere((a) => a.id == articleId);
       _savedArticles.removeWhere((a) => a.id == articleId);
       _starredArticles.removeWhere((a) => a.id == articleId);
-      
+
       notifyListeners();
       return true;
     } catch (e) {
@@ -534,7 +554,9 @@ class ArticleProvider with ChangeNotifier {
       final updatedArticle = await _databaseService.getArticleById(articleId);
       if (updatedArticle != null) {
         // Update the article in the current list
-        final index = _articles.indexWhere((article) => article.id == articleId);
+        final index = _articles.indexWhere(
+          (article) => article.id == articleId,
+        );
         if (index != -1) {
           _articles[index] = updatedArticle;
           notifyListeners();
@@ -569,48 +591,63 @@ class ArticleProvider with ChangeNotifier {
       // Fetch full article content using enhanced service first
       Map<String, dynamic>? extractedContent;
       String? fullContent;
-      
+
       try {
         print('Trying enhanced article extraction for: ${article.url}');
-        extractedContent = await compute(extractEnhancedArticleContentIsolate, article.url);
-        
+        extractedContent = await compute(
+          extractEnhancedArticleContentIsolate,
+          article.url,
+        );
+
         if (extractedContent != null && extractedContent['content'] != null) {
           fullContent = extractedContent['content'];
-          print('Enhanced extraction successful. Content length: ${fullContent?.length}');
+          print(
+            'Enhanced extraction successful. Content length: ${fullContent?.length}',
+          );
         } else {
           print('Enhanced extraction failed, falling back to original service');
-          fullContent = await compute(fetchFullArticleContentIsolate, article.url);
+          fullContent = await compute(
+            fetchFullArticleContentIsolate,
+            article.url,
+          );
         }
       } catch (e) {
-        print('Enhanced extraction error: $e, falling back to original service');
-        fullContent = await compute(fetchFullArticleContentIsolate, article.url);
+        print(
+          'Enhanced extraction error: $e, falling back to original service',
+        );
+        fullContent = await compute(
+          fetchFullArticleContentIsolate,
+          article.url,
+        );
       }
-      
+
       // Remove from loading set
       _loadingFullArticles.remove(articleId);
-      
+
       if (fullContent != null && fullContent.isNotEmpty) {
         // Update article with full content
         final updatedArticle = article.copyWith(fullContent: fullContent);
-        
+
         // Update in lists
         final index = _articles.indexWhere((a) => a.id == articleId);
         if (index != -1) {
           _articles[index] = updatedArticle;
         }
-        
+
         // Update in saved articles if applicable
         final savedIndex = _savedArticles.indexWhere((a) => a.id == articleId);
         if (savedIndex != -1) {
           _savedArticles[savedIndex] = updatedArticle;
         }
-        
+
         // Update in starred articles if applicable
-        final starredIndex = _starredArticles.indexWhere((a) => a.id == articleId);
+        final starredIndex = _starredArticles.indexWhere(
+          (a) => a.id == articleId,
+        );
         if (starredIndex != -1) {
           _starredArticles[starredIndex] = updatedArticle;
         }
-        
+
         notifyListeners();
         return true;
       } else {

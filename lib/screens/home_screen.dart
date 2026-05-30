@@ -240,9 +240,6 @@ class HomeTab extends StatelessWidget {
           );
         }
 
-        // TODO() Function to get Feed Name and Feed Icon URL
-
-
         // Function to get Feed Name and Feed Icon URL
         String _getFeedName(String feedId) {
           final feedProvider = context.read<FeedProvider>();
