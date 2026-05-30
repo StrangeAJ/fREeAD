@@ -23,8 +23,6 @@ class HighlightableText extends StatefulWidget {
 }
 
 class _HighlightableTextState extends State<HighlightableText> {
-  int? _selectionStart;
-  int? _selectionEnd;
   OverlayEntry? _selectionOverlay;
 
   @override
@@ -46,39 +44,37 @@ class _HighlightableTextState extends State<HighlightableText> {
     return Consumer<ArticleAnnotationProvider>(
       builder: (context, provider, child) {
         return widget.isEditMode
-          ? SelectableText(
-              widget.text,
-              style: widget.style,
-              onSelectionChanged: (selection, cause) => _handleTextSelection(selection, cause, provider),
-            )
-          : RichText(
-              text: _buildTextSpan(context, provider),
-            );
+            ? SelectableText(
+                widget.text,
+                style: widget.style,
+                onSelectionChanged: (selection, cause) =>
+                    _handleTextSelection(selection, cause, provider),
+              )
+            : RichText(text: _buildTextSpan(context, provider));
       },
     );
   }
 
-  void _handleTextSelection(TextSelection selection, SelectionChangedCause? cause, [ArticleAnnotationProvider? provider]) {
+  void _handleTextSelection(
+    TextSelection selection,
+    SelectionChangedCause? cause, [
+    ArticleAnnotationProvider? provider,
+  ]) {
     if (!widget.isEditMode || provider == null) return;
 
     final selectedText = widget.text.substring(selection.start, selection.end);
 
     if (selectedText.trim().isNotEmpty && selection.start != selection.end) {
       // Set the selection in the provider
-      provider.setSelection(selectedText.trim(), selection.start, selection.end);
-
-      setState(() {
-        _selectionStart = selection.start;
-        _selectionEnd = selection.end;
-      });
+      provider.setSelection(
+        selectedText.trim(),
+        selection.start,
+        selection.end,
+      );
     } else {
       // Clear selection if nothing is selected
       provider.clearSelection();
       _removeSelectionOverlay();
-      setState(() {
-        _selectionStart = null;
-        _selectionEnd = null;
-      });
     }
   }
 
@@ -87,18 +83,20 @@ class _HighlightableTextState extends State<HighlightableText> {
     _selectionOverlay = null;
   }
 
-  TextSpan _buildTextSpan(BuildContext context, ArticleAnnotationProvider provider) {
+  TextSpan _buildTextSpan(
+    BuildContext context,
+    ArticleAnnotationProvider provider,
+  ) {
     List<TextSpan> spans = [];
     int currentIndex = 0;
 
     // Filter out invalid highlights and sort by start index
     final validHighlights = widget.highlights.where((highlight) {
       return highlight.startIndex >= 0 &&
-             highlight.startIndex < widget.text.length &&
-             highlight.endIndex > highlight.startIndex &&
-             highlight.endIndex <= widget.text.length;
-    }).toList()
-      ..sort((a, b) => a.startIndex.compareTo(b.startIndex));
+          highlight.startIndex < widget.text.length &&
+          highlight.endIndex > highlight.startIndex &&
+          highlight.endIndex <= widget.text.length;
+    }).toList()..sort((a, b) => a.startIndex.compareTo(b.startIndex));
 
     for (final highlight in validHighlights) {
       // Skip overlapping highlights
@@ -109,31 +107,47 @@ class _HighlightableTextState extends State<HighlightableText> {
         final safeStartIndex = currentIndex.clamp(0, widget.text.length);
         final safeEndIndex = highlight.startIndex.clamp(0, widget.text.length);
         if (safeStartIndex < safeEndIndex) {
-          spans.add(TextSpan(
-            text: widget.text.substring(safeStartIndex, safeEndIndex),
-            style: widget.style,
-            recognizer: widget.isEditMode ? (TapGestureRecognizer()
-              ..onTapDown = (details) => _handleTapDown(context, provider, details)) : null,
-          ));
+          spans.add(
+            TextSpan(
+              text: widget.text.substring(safeStartIndex, safeEndIndex),
+              style: widget.style,
+              recognizer: widget.isEditMode
+                  ? (TapGestureRecognizer()
+                      ..onTapDown = (details) =>
+                          _handleTapDown(context, provider, details))
+                  : null,
+            ),
+          );
         }
       }
 
       // Add highlighted text with bounds checking
       final safeStartIndex = highlight.startIndex.clamp(0, widget.text.length);
-      final safeEndIndex = highlight.endIndex.clamp(highlight.startIndex, widget.text.length);
+      final safeEndIndex = highlight.endIndex.clamp(
+        highlight.startIndex,
+        widget.text.length,
+      );
 
       if (safeStartIndex < safeEndIndex) {
-        final highlightColor = Color(int.parse('0xFF${highlight.color.substring(1)}'));
-        final highlightText = widget.text.substring(safeStartIndex, safeEndIndex);
+        final highlightColor = Color(
+          int.parse('0xFF${highlight.color.substring(1)}'),
+        );
+        final highlightText = widget.text.substring(
+          safeStartIndex,
+          safeEndIndex,
+        );
 
-        spans.add(TextSpan(
-          text: highlightText,
-          style: widget.style?.copyWith(
-            backgroundColor: highlightColor.withOpacity(0.4),
+        spans.add(
+          TextSpan(
+            text: highlightText,
+            style: widget.style?.copyWith(
+              backgroundColor: highlightColor.withOpacity(0.4),
+            ),
+            recognizer: TapGestureRecognizer()
+              ..onTap = () =>
+                  _showHighlightOptions(context, provider, highlight),
           ),
-          recognizer: TapGestureRecognizer()
-            ..onTap = () => _showHighlightOptions(context, provider, highlight),
-        ));
+        );
 
         currentIndex = safeEndIndex;
       }
@@ -141,23 +155,36 @@ class _HighlightableTextState extends State<HighlightableText> {
 
     // Add remaining text
     if (currentIndex < widget.text.length) {
-      spans.add(TextSpan(
-        text: widget.text.substring(currentIndex),
-        style: widget.style,
-        recognizer: widget.isEditMode ? (TapGestureRecognizer()
-          ..onTapDown = (details) => _handleTapDown(context, provider, details)) : null,
-      ));
+      spans.add(
+        TextSpan(
+          text: widget.text.substring(currentIndex),
+          style: widget.style,
+          recognizer: widget.isEditMode
+              ? (TapGestureRecognizer()
+                  ..onTapDown = (details) =>
+                      _handleTapDown(context, provider, details))
+              : null,
+        ),
+      );
     }
 
     return TextSpan(children: spans);
   }
 
-  void _handleTapDown(BuildContext context, ArticleAnnotationProvider provider, TapDownDetails details) {
+  void _handleTapDown(
+    BuildContext context,
+    ArticleAnnotationProvider provider,
+    TapDownDetails details,
+  ) {
     if (!widget.isEditMode) return;
     // In edit mode with RichText, we'll rely on the SelectableText for selection
   }
 
-  void _showHighlightOptions(BuildContext context, ArticleAnnotationProvider provider, ArticleHighlight highlight) {
+  void _showHighlightOptions(
+    BuildContext context,
+    ArticleAnnotationProvider provider,
+    ArticleHighlight highlight,
+  ) {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -184,9 +211,9 @@ class _HighlightableTextState extends State<HighlightableText> {
 
             Text(
               'Highlight Options',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
 
@@ -194,17 +221,23 @@ class _HighlightableTextState extends State<HighlightableText> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Color(int.parse('0xFF${highlight.color.substring(1)}')).withOpacity(0.2),
+                color: Color(
+                  int.parse('0xFF${highlight.color.substring(1)}'),
+                ).withOpacity(0.2),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: Color(int.parse('0xFF${highlight.color.substring(1)}')).withOpacity(0.5),
+                  color: Color(
+                    int.parse('0xFF${highlight.color.substring(1)}'),
+                  ).withOpacity(0.5),
                   width: 1,
                 ),
               ),
               child: Text(
                 highlight.selectedText,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  backgroundColor: Color(int.parse('0xFF${highlight.color.substring(1)}')).withOpacity(0.3),
+                  backgroundColor: Color(
+                    int.parse('0xFF${highlight.color.substring(1)}'),
+                  ).withOpacity(0.3),
                 ),
               ),
             ),
@@ -226,10 +259,11 @@ class _HighlightableTextState extends State<HighlightableText> {
                         const SizedBox(width: 4),
                         Text(
                           'Note:',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.blue.shade600,
-                          ),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.blue.shade600,
+                              ),
                         ),
                       ],
                     ),
@@ -282,7 +316,11 @@ class _HighlightableTextState extends State<HighlightableText> {
     );
   }
 
-  void _editHighlightNote(BuildContext context, ArticleAnnotationProvider provider, ArticleHighlight highlight) {
+  void _editHighlightNote(
+    BuildContext context,
+    ArticleAnnotationProvider provider,
+    ArticleHighlight highlight,
+  ) {
     final noteController = TextEditingController(text: highlight.note ?? '');
 
     showDialog(
@@ -306,7 +344,9 @@ class _HighlightableTextState extends State<HighlightableText> {
           FilledButton(
             onPressed: () async {
               final updatedHighlight = highlight.copyWith(
-                note: noteController.text.trim().isEmpty ? null : noteController.text.trim(),
+                note: noteController.text.trim().isEmpty
+                    ? null
+                    : noteController.text.trim(),
               );
               await provider.updateHighlight(updatedHighlight);
               Navigator.pop(context);

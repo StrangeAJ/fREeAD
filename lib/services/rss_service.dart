@@ -7,6 +7,15 @@ import '../models/article.dart';
 import '../models/rss_feed.dart';
 
 class RSSService {
+  // Pre-compiled regular expressions for date parsing optimization
+  static final RegExp _dayNameRegex = RegExp(r'[A-Za-z]{3},\s*');
+  static final RegExp _multipleSpacesRegex = RegExp(r'\s+');
+  static final List<RegExp> _dateFormats = [
+    RegExp(r'(\d{1,2})\s+(\w+)\s+(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})'),
+    RegExp(r'(\d{4})-(\d{2})-(\d{2})\s+(\d{1,2}):(\d{2}):(\d{2})'),
+    RegExp(r'(\d{1,2})/(\d{1,2})/(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})'),
+  ];
+
   final Dio _dio;
 
   RSSService() : _dio = Dio() {
@@ -456,6 +465,14 @@ class RSSService {
     }
   }
 
+  static final _dayNameRegex = RegExp(r'[A-Za-z]{3},\s*');
+  static final _whitespaceRegex = RegExp(r'\s+');
+  static final _dateFormats = [
+    RegExp(r'(\d{1,2})\s+(\w+)\s+(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})'),
+    RegExp(r'(\d{4})-(\d{2})-(\d{2})\s+(\d{1,2}):(\d{2}):(\d{2})'),
+    RegExp(r'(\d{1,2})/(\d{1,2})/(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})'),
+  ];
+
   /// Parse date string to DateTime with multiple format support
   DateTime? _parseDate(String? dateString) {
     if (dateString == null || dateString.isEmpty) return null;
@@ -468,21 +485,14 @@ class RSSService {
         // Try parsing with RFC 822 format manually
         // Example: "Mon, 01 Jan 2024 12:00:00 +0000"
         final cleanedDate = dateString
-            .replaceAll(RegExp(r'[A-Za-z]{3},\s*'), '') // Remove day name
-            .replaceAll(RegExp(r'\s+'), ' ') // Normalize spaces
+            .replaceAll(_dayNameRegex, '') // Remove day name
+            .replaceAll(_multipleSpacesRegex, ' ') // Normalize spaces
             .trim();
         
         return DateTime.parse(cleanedDate);
       } catch (e2) {
         try {
-          // Try parsing with common date formats
-          final formats = [
-            RegExp(r'(\d{1,2})\s+(\w+)\s+(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})'),
-            RegExp(r'(\d{4})-(\d{2})-(\d{2})\s+(\d{1,2}):(\d{2}):(\d{2})'),
-            RegExp(r'(\d{1,2})/(\d{1,2})/(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})'),
-          ];
-          
-          for (final format in formats) {
+          for (final format in _dateFormats) {
             final match = format.firstMatch(dateString);
             if (match != null) {
               // Parse based on the matched format
@@ -518,12 +528,12 @@ class RSSService {
           .replaceAll('&apos;', "'");
       
       // Clean up excessive whitespace
-      cleanText = cleanText.replaceAll(RegExp(r'\s+'), ' ').trim();
+      cleanText = cleanText.replaceAll(_whitespaceRegex, ' ').trim();
       
       return cleanText;
     } catch (e) {
       // If parsing fails, return original text with basic cleanup
-      return text.replaceAll(RegExp(r'\s+'), ' ').trim();
+      return text.replaceAll(_whitespaceRegex, ' ').trim();
     }
   }
 
