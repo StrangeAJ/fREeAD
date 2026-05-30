@@ -9,18 +9,11 @@ import 'screens/home_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // Skip database initialization for web platform
-  if (!kIsWeb) {
-    // Database initialization will be handled by the DatabaseService
-    // for desktop platforms
-  }
-  
   runApp(const FreeAdApp());
 }
 
-class FreeAdApp extends StatelessWidget {
-  const FreeAdApp({super.key});
+class ObsidianReaderApp extends StatelessWidget {
+  const ObsidianReaderApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -33,7 +26,7 @@ class FreeAdApp extends StatelessWidget {
       child: Consumer<SettingsProvider>(
         builder: (context, settings, child) {
           return MaterialApp(
-            title: 'FreeAd - RSS Reader',
+            title: 'FreeAd',
             theme: AppTheme.lightTheme,
             darkTheme: AppTheme.darkTheme,
             themeMode: settings.themeMode,
@@ -44,6 +37,10 @@ class FreeAdApp extends StatelessWidget {
       ),
     );
   }
+}
+
+class FreeAdApp extends ObsidianReaderApp {
+  const FreeAdApp({super.key});
 }
 
 class AppInitializer extends StatefulWidget {
@@ -65,14 +62,10 @@ class _AppInitializerState extends State<AppInitializer> {
     final feedProvider = context.read<FeedProvider>();
     final articleProvider = context.read<ArticleProvider>();
 
-    // Initialize settings
     await settingsProvider.init();
-
-    // Load feeds and articles
     await feedProvider.loadFeeds();
     await articleProvider.loadArticles();
 
-    // Navigate to home screen
     if (mounted) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const HomeScreen()),
@@ -87,54 +80,32 @@ class _AppInitializerState extends State<AppInitializer> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // App logo/icon
             Container(
-              width: 100,
-              height: 100,
+              width: 80,
+              height: 80,
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.primary,
-                shape: BoxShape.circle,
+                borderRadius: BorderRadius.circular(20),
               ),
-              child: Icon(
-                Icons.rss_feed,
-                size: 50,
-                color: Theme.of(context).colorScheme.onPrimary,
+              child: const Icon(
+                Icons.rss_feed_rounded,
+                size: 40,
+                color: Colors.black,
               ),
             ),
-            const SizedBox(height: 32),
-            
-            // App title
+            const SizedBox(height: 24),
             Text(
               'FreeAd',
-              style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                color: Theme.of(context).colorScheme.primary,
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.bold,
+                letterSpacing: -0.5,
               ),
             ),
-            
-            // Subtitle
-            Text(
-              'RSS News & Blog Reader',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-              ),
-            ),
-            
             const SizedBox(height: 48),
-            
-            // Loading indicator
-            CircularProgressIndicator(
-              color: Theme.of(context).colorScheme.primary,
-            ),
-            
-            const SizedBox(height: 16),
-            
-            // Loading text
-            Text(
-              'Loading...',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-              ),
+            const SizedBox(
+              width: 40,
+              height: 40,
+              child: CircularProgressIndicator(strokeWidth: 3),
             ),
           ],
         ),

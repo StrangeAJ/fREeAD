@@ -3,7 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:flutter_html/flutter_html.dart';
+import 'dart:ui';
+import 'package:intl/intl.dart';
 import '../models/article.dart';
 import '../providers/article_provider.dart';
 import '../providers/settings_provider.dart';
@@ -29,12 +30,11 @@ class ArticleReadingScreen extends StatefulWidget {
 
 class _ArticleReadingScreenState extends State<ArticleReadingScreen> {
   final ScrollController _scrollController = ScrollController();
-  bool _isScrolled = false;
   bool _showFullContent = false;
   String? _summary;
   bool _isLoadingSummary = false;
-  bool _showNotesPanel = false;
   late ArticleAnnotationProvider _annotationProvider;
+  double _readingProgress = 0.0;
 
   @override
   void initState() {
@@ -42,10 +42,8 @@ class _ArticleReadingScreenState extends State<ArticleReadingScreen> {
     _scrollController.addListener(_onScroll);
     _annotationProvider = ArticleAnnotationProvider();
 
-    // Initialize annotation service
     ArticleAnnotationService().initializeTables();
     
-    // Mark article as read and load annotations
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ArticleProvider>().markAsRead(widget.article.id);
       _annotationProvider.loadAnnotations(widget.article.id);
@@ -70,14 +68,14 @@ class _ArticleReadingScreenState extends State<ArticleReadingScreen> {
   }
 
   void _onScroll() {
-    if (_scrollController.offset > 100 && !_isScrolled) {
-      setState(() {
-        _isScrolled = true;
-      });
-    } else if (_scrollController.offset <= 100 && _isScrolled) {
-      setState(() {
-        _isScrolled = false;
-      });
+    if (_scrollController.hasClients) {
+      final maxScroll = _scrollController.position.maxScrollExtent;
+      if (maxScroll > 0) {
+        final currentScroll = _scrollController.offset;
+        setState(() {
+          _readingProgress = (currentScroll / maxScroll).clamp(0.0, 1.0);
+        });
+      }
     }
   }
 
@@ -87,570 +85,247 @@ class _ArticleReadingScreenState extends State<ArticleReadingScreen> {
       value: _annotationProvider,
       child: Consumer2<SettingsProvider, ArticleAnnotationProvider>(
         builder: (context, settings, annotationProvider, child) {
+          final theme = Theme.of(context);
+
           return Scaffold(
-            backgroundColor: _getBackgroundColor(context, settings),
-            body: Stack(
-              children: [
-                CustomScrollView(
-                  controller: _scrollController,
-                  slivers: [
-                    _buildSliverAppBar(context, settings, annotationProvider),
-                    SliverToBoxAdapter(
-                      child: _buildArticleContent(context, settings, annotationProvider),
+            extendBodyBehindAppBar: true,
+            appBar: PreferredSize(
+              preferredSize: const Size.fromHeight(kToolbarHeight + 2),
+              child: Column(
+                children: [
+                  FuturisticAppBar(
+                    leading: IconButton(
+                      icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+                      onPressed: () => Navigator.pop(context),
                     ),
-                  ],
-                ),
-                // Highlight color picker overlay
-                if (annotationProvider.selectedText != null)
-                  Positioned(
-                    bottom: _showNotesPanel ? MediaQuery.of(context).size.height * 0.6 + 20 : 100,
-                    left: 16,
-                    right: 16,
-                    child: HighlightColorPicker(
-                      articleId: widget.article.id,
-                      onHighlightAdded: () {
-                        annotationProvider.loadAnnotations(widget.article.id);
-                      },
-                    ),
+                    actions: [
+                      IconButton(
+                        icon: Icon(
+                          widget.article.isStarred ? Icons.star_rounded : Icons.star_outline_rounded,
+                          color: widget.article.isStarred ? Colors.amber : null,
+                        ),
+                        onPressed: () => context.read<ArticleProvider>().toggleStarred(widget.article.id),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.auto_awesome_outlined),
+                        onPressed: _generateSummary,
+                        tooltip: 'Summarize',
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.share_outlined),
+                        onPressed: _shareArticle,
+                      ),
+                    ],
                   ),
-                // Notes panel
-                if (_showNotesPanel)
-                  Positioned(
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    height: MediaQuery.of(context).size.height * 0.6,
-                    child: ArticleNotesPanel(articleId: widget.article.id),
+                  LinearProgressIndicator(
+                    value: _readingProgress,
+                    backgroundColor: Colors.transparent,
+                    valueColor: AlwaysStoppedAnimation<Color>(theme.colorScheme.primary),
                   ),
-                // Floating Action Buttons - positioned to avoid notes panel
-                if (!_showNotesPanel) // Only show FABs when notes panel is closed
-                  Positioned(
-                    bottom: 16,
-                    right: 16,
-                    child: _buildFloatingActionButtons(context),
-                  ),
-              ],
+                ],
+              ),
             ),
-            // Remove default FAB positioning when notes panel might be open
-            floatingActionButton: null,
+            body: SingleChildScrollView(
+              controller: _scrollController,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (widget.article.imageUrl != null)
+                    AspectRatio(
+                      aspectRatio: 16 / 9,
+                      child: Image.network(
+                        widget.article.imageUrl!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+                      ),
+                    ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 32, 20, 100),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.article.title,
+                          style: theme.textTheme.headlineMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            height: 1.3,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            if (widget.article.author != null) ...[
+                              Text(
+                                'By ${widget.article.author}',
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: theme.colorScheme.onSurface.withOpacity(0.6),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                            ],
+                            Text(
+                              DateFormat('MMMM d, yyyy').format(widget.article.publishedDate),
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: theme.colorScheme.onSurface.withOpacity(0.6),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 32),
+                        if (_summary != null) _buildSummarySection(theme),
+                        if (_isLoadingSummary) const Center(child: CircularProgressIndicator()),
+                        _buildMainContent(context, settings, annotationProvider),
+                        const SizedBox(height: 48),
+                        _buildReadOriginalButton(context),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            bottomNavigationBar: _buildBottomBar(theme),
           );
         },
       ),
     );
   }
 
-  Widget _buildSliverAppBar(BuildContext context, SettingsProvider settings, ArticleAnnotationProvider annotationProvider) {
-    return SliverAppBar(
-      expandedHeight: widget.article.imageUrl != null ? 200.0 : 120.0,
-      floating: false,
-      pinned: true,
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      foregroundColor: Theme.of(context).colorScheme.onSurface,
-      actions: [
-        Consumer<ArticleProvider>(
-          builder: (context, articleProvider, child) {
-            return IconButton(
-              icon: Icon(
-                widget.article.isSaved ? Icons.bookmark : Icons.bookmark_border,
-                color: widget.article.isSaved ? Colors.orange : null,
-              ),
-              onPressed: () {
-                articleProvider.toggleSaved(widget.article.id);
-              },
-            );
-          },
-        ),
-        Consumer<ArticleProvider>(
-          builder: (context, articleProvider, child) {
-            return IconButton(
-              icon: Icon(
-                widget.article.isStarred ? Icons.star : Icons.star_border,
-                color: widget.article.isStarred ? Colors.amber : null,
-              ),
-              onPressed: () {
-                articleProvider.toggleStarred(widget.article.id);
-              },
-            );
-          },
-        ),
-        IconButton(
-          icon: const Icon(Icons.auto_awesome),
-          tooltip: 'Summarize',
-          onPressed: _generateSummary,
-        ),
-        // Edit/Annotation toggle button
-        IconButton(
-          icon: Icon(
-            annotationProvider.isEditMode ? Icons.edit_off : Icons.edit,
-            color: annotationProvider.isEditMode ? Colors.orange : null,
-          ),
-          onPressed: () {
-            annotationProvider.toggleEditMode();
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  annotationProvider.isEditMode 
-                    ? 'Edit mode enabled - Tap text to highlight'
-                    : 'Edit mode disabled',
-                ),
-                duration: const Duration(seconds: 2),
-              ),
-            );
-          },
-          tooltip: annotationProvider.isEditMode ? 'Exit Edit Mode' : 'Enter Edit Mode',
-        ),
-        // Notes panel toggle
-        IconButton(
-          icon: Badge(
-            isLabelVisible: annotationProvider.notes.isNotEmpty || annotationProvider.highlights.isNotEmpty,
-            label: Text('${annotationProvider.notes.length + annotationProvider.highlights.length}'),
-            child: const Icon(Icons.notes),
-          ),
-          onPressed: () {
-            setState(() {
-              _showNotesPanel = !_showNotesPanel;
-            });
-          },
-          tooltip: 'View Notes & Highlights',
-        ),
-        PopupMenuButton<String>(
-          icon: const Icon(Icons.more_vert),
-          onSelected: (value) async {
-            switch (value) {
-              case 'share':
-                await _shareArticle();
-                break;
-              case 'open_browser':
-                await _openInBrowser();
-                break;
-              case 'copy_link':
-                await _copyLink();
-                break;
-              case 'clear_annotations':
-                _showClearAnnotationsDialog(context, annotationProvider);
-                break;
-            }
-          },
-          itemBuilder: (context) => [
-            const PopupMenuItem(value: 'share', child: Text('Share Article')),
-            const PopupMenuItem(value: 'open_browser', child: Text('Open in Browser')),
-            const PopupMenuItem(value: 'copy_link', child: Text('Copy Link')),
-            const PopupMenuItem(value: 'clear_annotations', child: Text('Clear All Notes & Highlights')),
-          ],
-        ),
-      ],
-      flexibleSpace: FlexibleSpaceBar(
-        background: widget.article.imageUrl != null
-            ? Stack(
-                fit: StackFit.expand,
-                children: [
-                  Image.network(
-                    widget.article.imageUrl!,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        color: Theme.of(context).colorScheme.surfaceVariant,
-                        child: const Icon(Icons.article, size: 48),
-                      );
-                    },
-                  ),
-                  Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.transparent,
-                          Colors.black.withOpacity(0.7),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              )
-            : Container(
-                color: Theme.of(context).colorScheme.surfaceVariant,
-                child: const Icon(Icons.article, size: 48),
-              ),
-      ),
-    );
-  }
-
-  Widget _buildArticleContent(BuildContext context, SettingsProvider settings, ArticleAnnotationProvider annotationProvider) {
+  Widget _buildSummarySection(ThemeData theme) {
     return Container(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Title with highlighting support
-          HighlightableText(
-            text: widget.article.title,
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              fontSize: settings.fontSize * 1.2,
-              fontWeight: FontWeight.bold,
-              height: 1.3,
-            ),
-            highlights: annotationProvider.highlights.where((h) =>
-              widget.article.title.contains(h.selectedText)).toList(),
-            isEditMode: annotationProvider.isEditMode,
-          ),
-          const SizedBox(height: 16),
-          
-          // Article metadata
-          _buildMetadata(context, settings),
-          
-          // Summary section
-          if (_isLoadingSummary || _summary != null)
-            _buildSummary(context, settings),
-
-          const SizedBox(height: 24),
-          
-          // Article content with highlighting
-          _buildContent(context, settings, annotationProvider),
-          
-          const SizedBox(height: 32),
-          
-          // Read original button
-          _buildReadOriginalButton(context),
-          
-          const SizedBox(height: 100), // Extra space for FAB
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMetadata(BuildContext context, SettingsProvider settings) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      margin: const EdgeInsets.only(bottom: 32),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5),
-        borderRadius: BorderRadius.circular(12),
+        color: theme.colorScheme.primary.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: theme.colorScheme.primary.withOpacity(0.1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (widget.article.author != null) ...[
-            Row(
-              children: [
-                Icon(Icons.person, size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
-                const SizedBox(width: 8),
-                Text(
-                  widget.article.author!,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontSize: settings.fontSize * 0.9,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-          ],
           Row(
             children: [
-              Icon(Icons.schedule, size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
+              Icon(Icons.auto_awesome, size: 18, color: theme.colorScheme.primary),
               const SizedBox(width: 8),
               Text(
-                widget.article.timeAgo,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  fontSize: settings.fontSize * 0.9,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
+                'AI SUMMARY',
+                style: theme.textTheme.labelSmall?.copyWith(fontWeight: FontWeight.bold),
               ),
             ],
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSummary(BuildContext context, SettingsProvider settings) {
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 16),
-      padding: const EdgeInsets.all(16.0),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.5),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+          const SizedBox(height: 12),
           Text(
-            'Summary',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: Theme.of(context).colorScheme.onPrimaryContainer,
+            _summary!,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontStyle: FontStyle.italic,
+              height: 1.6,
             ),
           ),
-          const SizedBox(height: 8),
-          if (_isLoadingSummary)
-            Row(
-              children: [
-                const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  'Generating summary...',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onPrimaryContainer,
-                  ),
-                ),
-              ],
-            )
-          else if (_summary != null)
-            SelectableText(
-              _summary!,
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                fontSize: settings.fontSize,
-                height: 1.6,
-                color: _getTextColor(context, settings),
-              ),
-            )
-          else
-            Text(
-              'No summary available. Tap the summarize button to generate one.',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-              textAlign: TextAlign.center,
-            ),
         ],
       ),
     );
   }
 
-  Widget _buildContent(BuildContext context, SettingsProvider settings, ArticleAnnotationProvider annotationProvider) {
-    return Consumer<ArticleProvider>(
-      builder: (context, articleProvider, child) {
-        final article = articleProvider.getArticleById(widget.article.id) ?? widget.article;
-        final isLoadingFull = articleProvider.isLoadingFullArticle(widget.article.id);
-        
-        String displayContent;
-        if (_showFullContent && article.fullContent != null && article.fullContent!.isNotEmpty) {
-          displayContent = _cleanContent(article.fullContent!); // Convert HTML to plain text for highlighting
-        } else {
-          displayContent = article.content ?? article.description;
-        }
-        
-        if (displayContent.isEmpty) {
-          return Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              children: [
-                Icon(Icons.article_outlined, size: 48, color: Theme.of(context).colorScheme.onSurfaceVariant),
-                const SizedBox(height: 16),
-                Text(
-                  'No content available',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Tap "Read Full Article" to load the complete article',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
-          );
-        }
+  Widget _buildMainContent(BuildContext context, SettingsProvider settings, ArticleAnnotationProvider annotationProvider) {
+    final displayContent = _showFullContent ? (widget.article.fullContent ?? widget.article.content) : widget.article.content;
 
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (isLoadingFull)
-              Container(
-                padding: const EdgeInsets.all(16),
-                margin: const EdgeInsets.only(bottom: 16),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.5),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
-                    const SizedBox(width: 12),
-                    Text('Loading full article...', style: Theme.of(context).textTheme.bodyMedium),
-                  ],
-                ),
-              ),
-            
-            // Content type indicator
-            if (_showFullContent && article.fullContent != null && article.fullContent!.isNotEmpty)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                margin: const EdgeInsets.only(bottom: 16),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primaryContainer,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.article, size: 16, color: Theme.of(context).colorScheme.onPrimaryContainer),
-                    const SizedBox(width: 6),
-                    Text(
-                      'Full Article',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onPrimaryContainer,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+    return HighlightableText(
+      text: _cleanContent(displayContent ?? ''),
+      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+        fontSize: settings.fontSize,
+        height: 1.6,
+      ),
+      highlights: annotationProvider.highlights,
+      isEditMode: annotationProvider.isEditMode,
+    );
+  }
 
-            // Always use HighlightableText for both regular and full content
-            HighlightableText(
-              text: _cleanContent(displayContent),
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                fontSize: settings.fontSize,
-                height: 1.6,
-                color: _getTextColor(context, settings),
+  Widget _buildBottomBar(ThemeData theme) {
+    return Container(
+      height: 80,
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface.withOpacity(0.8),
+      ),
+      child: ClipRRect(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              IconButton(
+                icon: Icon(
+                  widget.article.isSaved ? Icons.bookmark_rounded : Icons.bookmark_outline_rounded,
+                  color: widget.article.isSaved ? theme.colorScheme.primary : null,
+                ),
+                onPressed: () => context.read<ArticleProvider>().toggleSaved(widget.article.id),
               ),
-              highlights: annotationProvider.highlights,
-              isEditMode: annotationProvider.isEditMode,
-            ),
-          ],
-        );
-      },
+              IconButton(
+                icon: const Icon(Icons.text_fields_rounded),
+                onPressed: _showSettingsDialog,
+              ),
+              IconButton(
+                icon: const Icon(Icons.open_in_browser_rounded),
+                onPressed: _launchOriginalArticle,
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
   Widget _buildReadOriginalButton(BuildContext context) {
     return Consumer<ArticleProvider>(
       builder: (context, articleProvider, child) {
-        final article = articleProvider.getArticleById(widget.article.id) ?? widget.article;
         final isLoadingFull = articleProvider.isLoadingFullArticle(widget.article.id);
-        final hasFullContent = article.fullContent != null && article.fullContent!.isNotEmpty;
         
         return Center(
-          child: Column(
-            children: [
-              if (hasFullContent) ...[
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    FuturisticGlowButton(
-                      onPressed: isLoadingFull ? null : () {
-                        setState(() {
-                          _showFullContent = !_showFullContent;
-                        });
-                      },
-                      icon: _showFullContent ? Icons.description_rounded : Icons.article_rounded,
-                      label: _showFullContent ? 'Show Original' : 'Show Full Article',
-                      isToggled: _showFullContent,
-                      showGlow: true,
-                      glowRadius: 25,
-                      glowSpread: 3,
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                      child: Text(_showFullContent ? 'Show Original' : 'Show Full Article'),
-                    ),
-                    const SizedBox(width: 12),
-                    FuturisticSecondaryButton(
-                      onPressed: () => _launchOriginalArticle(),
-                      icon: Icons.web_rounded,
-                      label: 'Open in Browser',
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                      child: const Text('Open in Browser'),
-                    ),
-                  ],
-                ),
-              ] else ...[
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    FuturisticGlowButton(
-                      onPressed: isLoadingFull ? null : () async {
-                        final success = await articleProvider.loadFullArticle(widget.article.id);
-                        if (success) {
-                          setState(() {
-                            _showFullContent = true;
-                          });
-                        } else {
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(articleProvider.error ?? 'Failed to load full article'),
-                                action: SnackBarAction(
-                                  label: 'Try Browser',
-                                  onPressed: _launchOriginalArticle,
-                                ),
-                              ),
-                            );
-                          }
-                        }
-                      },
-                      icon: Icons.article_rounded,
-                      label: isLoadingFull ? 'Loading...' : 'Read Full Article',
-                      isLoading: isLoadingFull,
-                      showGlow: true,
-                      glowRadius: 30,
-                      glowSpread: 4,
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                      child: Text(isLoadingFull ? 'Loading...' : 'Read Full Article'),
-                    ),
-                    const SizedBox(width: 12),
-                    FuturisticSecondaryButton(
-                      onPressed: () => _launchOriginalArticle(),
-                      icon: Icons.web_rounded,
-                      label: 'Open in Browser',
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                      child: const Text('Open in Browser'),
-                    ),
-                  ],
-                ),
-              ],
-            ],
+          child: OutlinedButton.icon(
+            onPressed: isLoadingFull ? null : () async {
+              if (widget.article.fullContent != null) {
+                setState(() => _showFullContent = !_showFullContent);
+              } else {
+                final success = await articleProvider.loadFullArticle(widget.article.id);
+                if (success) setState(() => _showFullContent = true);
+              }
+            },
+            icon: Icon(_showFullContent ? Icons.description_rounded : Icons.article_rounded),
+            label: Text(_showFullContent ? 'Show Summary' : (isLoadingFull ? 'Loading...' : 'Load Full Article')),
           ),
         );
       },
     );
   }
 
-  Widget _buildFloatingActionButtons(BuildContext context) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.end,
-      children: [
-        FuturisticFAB(
-          onPressed: () {
-            _scrollController.animateTo(
-              0,
-              duration: const Duration(milliseconds: 500),
-              curve: Curves.easeInOut,
-            );
-          },
-          icon: Icons.keyboard_arrow_up_rounded,
-          tooltip: 'Scroll to top',
-          showPulse: false,
+  void _showSettingsDialog() {
+    final settings = context.read<SettingsProvider>();
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Reading Settings', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                const Text('Font Size'),
+                Expanded(
+                  child: Slider(
+                    value: settings.fontSize,
+                    min: 12,
+                    max: 30,
+                    divisions: 9,
+                    onChanged: (value) => settings.setFontSize(value),
+                  ),
+                ),
+                Text(settings.fontSize.toInt().toString()),
+              ],
+            ),
+          ],
         ),
-        const SizedBox(height: 8),
-        FuturisticFAB(
-          onPressed: () => _shareArticle(),
-          icon: Icons.share_rounded,
-          tooltip: 'Share article',
-          showPulse: true,
-        ),
-      ],
+      ),
     );
-  }
-
-  // Helper methods
-  Color _getBackgroundColor(BuildContext context, SettingsProvider settings) {
-    return Theme.of(context).colorScheme.surface;
-  }
-
-  Color _getTextColor(BuildContext context, SettingsProvider settings) {
-    return Theme.of(context).colorScheme.onSurface;
   }
 
   String _cleanContent(String content) {
@@ -666,123 +341,29 @@ class _ArticleReadingScreenState extends State<ArticleReadingScreen> {
         .trim();
   }
 
-  // Action methods
   Future<void> _generateSummary() async {
-    setState(() {
-      _isLoadingSummary = true;
-    });
-
+    setState(() => _isLoadingSummary = true);
     try {
       final summary = await SummarizationService().summarizeArticle(widget.article);
-      final settings = context.read<SettingsProvider>();
-      final autoSave = settings.autoSaveSummaries;
-
       setState(() {
         _summary = summary;
         _isLoadingSummary = false;
       });
-
-      final articleProvider = context.read<ArticleProvider>();
-      await articleProvider.refreshArticle(widget.article.id);
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(autoSave ? 'Summary Saved' : 'Summary generated'),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
+      context.read<ArticleProvider>().refreshArticle(widget.article.id);
     } catch (e) {
-      setState(() {
-        _isLoadingSummary = false;
-      });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${e.toString()}')),
-        );
-      }
+      setState(() => _isLoadingSummary = false);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
     }
   }
 
   Future<void> _shareArticle() async {
-    final shareText = '${widget.article.title}\n\n${widget.article.url}';
-    Share.share(shareText, subject: widget.article.title);
-  }
-
-  Future<void> _openInBrowser() async {
-    _launchOriginalArticle();
-  }
-
-  Future<void> _copyLink() async {
-    Clipboard.setData(ClipboardData(text: widget.article.url));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Link copied to clipboard')),
-    );
+    Share.share('${widget.article.title}\n\n${widget.article.url}');
   }
 
   Future<void> _launchOriginalArticle() async {
-    try {
-      final Uri url = Uri.parse(widget.article.url);
-      if (url.scheme.isEmpty) {
-        throw Exception('Invalid URL: ${widget.article.url}');
-      }
-
-      bool launched = await launchUrl(url, mode: LaunchMode.inAppBrowserView);
-      if (!launched) {
-        launched = await launchUrl(url, mode: LaunchMode.inAppWebView);
-      }
-
-      if (!launched) {
-        throw Exception('Could not open article in app');
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error opening article: ${e.toString()}'),
-            action: SnackBarAction(
-              label: 'Copy URL',
-              onPressed: _copyLink,
-            ),
-            duration: const Duration(seconds: 5),
-          ),
-        );
-      }
+    final url = Uri.parse(widget.article.url);
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.inAppBrowserView);
     }
-  }
-
-  void _showClearAnnotationsDialog(BuildContext context, ArticleAnnotationProvider annotationProvider) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Clear Annotations'),
-          content: const Text('Are you sure you want to clear all notes and highlights for this article?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () async {
-                Navigator.of(context).pop();
-                try {
-                  await annotationProvider.clearAllAnnotations(widget.article.id);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('All notes and highlights cleared')),
-                  );
-                } catch (e) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error clearing annotations: $e')),
-                  );
-                }
-              },
-              child: const Text('Clear All'),
-            ),
-          ],
-        );
-      },
-    );
   }
 }

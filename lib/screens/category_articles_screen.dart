@@ -3,29 +3,67 @@ import 'package:provider/provider.dart';
 import '../models/article.dart';
 import '../providers/article_provider.dart';
 import '../widgets/article_list_widget.dart';
+import '../widgets/futuristic_widgets.dart';
 
 class CategoryArticlesScreen extends StatefulWidget {
   final String categoryId;
   final String categoryName;
 
-  const CategoryArticlesScreen({Key? key, required this.categoryId, required this.categoryName})
-      : super(key: key);
+  const CategoryArticlesScreen({super.key, required this.categoryId, required this.categoryName});
 
   @override
-  _CategoryArticlesScreenState createState() => _CategoryArticlesScreenState();
+  State<CategoryArticlesScreen> createState() => _CategoryArticlesScreenState();
 }
 
 class _CategoryArticlesScreenState extends State<CategoryArticlesScreen> {
+  late Future<List<Article>> _articlesFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadArticles();
+  }
+
+  void _loadArticles() {
+    setState(() {
+      _articlesFuture = context.read<ArticleProvider>().getArticlesByCategory(widget.categoryId);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    return ArticleListWidget(
-      articlesLoader: () => context.read<ArticleProvider>().getArticlesByCategory(widget.categoryId),
-      title: widget.categoryName,
-      emptyMessage: 'No articles found in this category',
-      onRefresh: () {
-        // Refresh articles for this category
-        context.read<ArticleProvider>().refreshArticles();
-      },
+    return Scaffold(
+      appBar: FuturisticAppBar(
+        title: widget.categoryName,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+      body: FutureBuilder<List<Article>>(
+        future: _articlesFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (snapshot.hasError) {
+            return Center(child: Text('Error: ${snapshot.error}'));
+          }
+
+          final articles = snapshot.data ?? [];
+          return RefreshIndicator(
+            onRefresh: () async {
+              await context.read<ArticleProvider>().refreshAllArticles();
+              _loadArticles();
+            },
+            child: ArticleListWidget(
+              articles: articles,
+              title: widget.categoryName,
+            ),
+          );
+        },
+      ),
     );
   }
 }

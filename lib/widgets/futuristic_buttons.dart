@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:ui';
 
-/// Enhanced button with glow effect and animated states
 class FuturisticGlowButton extends StatefulWidget {
   final VoidCallback? onPressed;
   final Widget child;
@@ -56,21 +55,13 @@ class _FuturisticGlowButtonState extends State<FuturisticGlowButton>
       vsync: this,
     );
     
-    _glowAnimation = Tween<double>(
-      begin: 0.8,
-      end: 1.2,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeInOut,
-    ));
+    _glowAnimation = Tween<double>(begin: 0.8, end: 1.2).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
     
-    _scaleAnimation = Tween<double>(
-      begin: 1.0,
-      end: 1.02,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeInOut,
-    ));
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.02).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
     
     if (widget.showGlow) {
       _controller.repeat(reverse: true);
@@ -87,7 +78,6 @@ class _FuturisticGlowButtonState extends State<FuturisticGlowButton>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     
-    // Dynamic colors based on toggle state (with increased transparency)
     final effectiveBackgroundColor = widget.isToggled 
         ? (widget.backgroundColor ?? theme.colorScheme.secondary).withOpacity(0.75)
         : (widget.backgroundColor ?? theme.colorScheme.primary).withOpacity(0.75);
@@ -111,12 +101,6 @@ class _FuturisticGlowButtonState extends State<FuturisticGlowButton>
                   spreadRadius: widget.glowSpread * _glowAnimation.value,
                   offset: const Offset(0, 2),
                 ),
-                BoxShadow(
-                  color: effectiveGlowColor.withOpacity(0.12 * _glowAnimation.value),
-                  blurRadius: widget.glowRadius * 1.5 * _glowAnimation.value,
-                  spreadRadius: widget.glowSpread * 1.5 * _glowAnimation.value,
-                  offset: const Offset(0, 4),
-                ),
               ] : null,
             ),
             child: widget.icon != null && widget.label != null
@@ -128,43 +112,29 @@ class _FuturisticGlowButtonState extends State<FuturisticGlowButton>
                             height: 16,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                effectiveForegroundColor,
-                              ),
+                              valueColor: AlwaysStoppedAnimation<Color>(effectiveForegroundColor),
                             ),
                           )
                         : Icon(widget.icon),
                     label: Text(widget.label!),
-                    style: (widget.style ?? ElevatedButton.styleFrom()).copyWith(
-                      backgroundColor: MaterialStateProperty.all(effectiveBackgroundColor),
-                      foregroundColor: MaterialStateProperty.all(effectiveForegroundColor),
-                      elevation: MaterialStateProperty.all(widget.showGlow ? 8 : 4),
-                      shadowColor: MaterialStateProperty.all(effectiveGlowColor),
-                      shape: MaterialStateProperty.all(
-                        RoundedRectangleBorder(
-                          borderRadius: widget.borderRadius ?? BorderRadius.circular(24),
-                        ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: effectiveBackgroundColor,
+                      foregroundColor: effectiveForegroundColor,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: widget.borderRadius ?? BorderRadius.circular(24),
                       ),
-                      padding: MaterialStateProperty.all(
-                        widget.padding ?? const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                      ),
+                      padding: widget.padding ?? const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                     ),
                   )
                 : ElevatedButton(
                     onPressed: widget.onPressed,
-                    style: (widget.style ?? ElevatedButton.styleFrom()).copyWith(
-                      backgroundColor: MaterialStateProperty.all(effectiveBackgroundColor),
-                      foregroundColor: MaterialStateProperty.all(effectiveForegroundColor),
-                      elevation: MaterialStateProperty.all(widget.showGlow ? 8 : 4),
-                      shadowColor: MaterialStateProperty.all(effectiveGlowColor),
-                      shape: MaterialStateProperty.all(
-                        RoundedRectangleBorder(
-                          borderRadius: widget.borderRadius ?? BorderRadius.circular(24),
-                        ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: effectiveBackgroundColor,
+                      foregroundColor: effectiveForegroundColor,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: widget.borderRadius ?? BorderRadius.circular(24),
                       ),
-                      padding: MaterialStateProperty.all(
-                        widget.padding ?? const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                      ),
+                      padding: widget.padding ?? const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                     ),
                     child: widget.child,
                   ),
@@ -175,7 +145,6 @@ class _FuturisticGlowButtonState extends State<FuturisticGlowButton>
   }
 }
 
-/// Enhanced secondary button with better dark mode contrast
 class FuturisticSecondaryButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final Widget child;
@@ -201,7 +170,6 @@ class FuturisticSecondaryButton extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     
-    // Better contrast colors for dark mode (with increased transparency)
     final backgroundColor = isDark 
         ? theme.colorScheme.surface.withOpacity(0.6)
         : theme.colorScheme.secondary.withOpacity(0.7);
@@ -215,14 +183,6 @@ class FuturisticSecondaryButton extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         borderRadius: borderRadius ?? BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: theme.colorScheme.primary.withOpacity(isDark ? 0.2 : 0.12),
-            blurRadius: 12,
-            spreadRadius: 1,
-            offset: const Offset(0, 4),
-          ),
-        ],
       ),
       child: ClipRRect(
         borderRadius: borderRadius ?? BorderRadius.circular(24),
@@ -232,10 +192,7 @@ class FuturisticSecondaryButton extends StatelessWidget {
             decoration: BoxDecoration(
               color: backgroundColor,
               borderRadius: borderRadius ?? BorderRadius.circular(24),
-              border: Border.all(
-                color: borderColor,
-                width: 1.5,
-              ),
+              border: Border.all(color: borderColor, width: 1.5),
             ),
             child: icon != null && label != null
                 ? ElevatedButton.icon(
@@ -255,7 +212,6 @@ class FuturisticSecondaryButton extends StatelessWidget {
                       backgroundColor: Colors.transparent,
                       foregroundColor: foregroundColor,
                       elevation: 0,
-                      shadowColor: Colors.transparent,
                       shape: RoundedRectangleBorder(
                         borderRadius: borderRadius ?? BorderRadius.circular(24),
                       ),
@@ -268,7 +224,6 @@ class FuturisticSecondaryButton extends StatelessWidget {
                       backgroundColor: Colors.transparent,
                       foregroundColor: foregroundColor,
                       elevation: 0,
-                      shadowColor: Colors.transparent,
                       shape: RoundedRectangleBorder(
                         borderRadius: borderRadius ?? BorderRadius.circular(24),
                       ),

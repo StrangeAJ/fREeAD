@@ -1,164 +1,73 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../providers/feed_provider.dart';
-import '../models/article.dart';
-import '../widgets/futuristic_widgets.dart';
+import 'futuristic_widgets.dart';
 
-class FuturisticAddFeedDialog extends StatefulWidget {
-  const FuturisticAddFeedDialog({super.key});
+class FuturisticDialog extends StatelessWidget {
+  final String title;
+  final Widget content;
+  final List<Widget>? actions;
 
-  @override
-  State<FuturisticAddFeedDialog> createState() => _FuturisticAddFeedDialogState();
-}
-
-class _FuturisticAddFeedDialogState extends State<FuturisticAddFeedDialog> {
-  final _formKey = GlobalKey<FormState>();
-  final _urlController = TextEditingController();
-  final _nameController = TextEditingController();
-  bool _isLoading = false;
-
-  @override
-  void dispose() {
-    _urlController.dispose();
-    _nameController.dispose();
-    super.dispose();
-  }
+  const FuturisticDialog({
+    super.key,
+    required this.title,
+    required this.content,
+    this.actions,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      child: GlassContainer(
-        padding: const EdgeInsets.all(24),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(
-                      Icons.rss_feed_rounded,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Center(
+      child: Container(
+        margin: const EdgeInsets.all(24),
+        child: RefinedGlassContainer(
+          padding: const EdgeInsets.all(24),
+          blur: 20,
+          opacity: isDark ? 0.05 : 0.8,
+          child: Material(
+            color: Colors.transparent,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Text(
-                      'Add RSS Feed',
-                      style: Theme.of(context).textTheme.headlineSmall,
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
+                ),
+                const SizedBox(height: 16),
+                content,
+                if (actions != null) ...[
+                  const SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: actions!,
                   ),
                 ],
-              ),
-              const SizedBox(height: 24),
-              
-              // URL input
-              TextFormField(
-                controller: _urlController,
-                decoration: const InputDecoration(
-                  labelText: 'RSS Feed URL',
-                  hintText: 'https://example.com/rss',
-                  prefixIcon: Icon(Icons.link_rounded),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter a URL';
-                  }
-                  final uri = Uri.tryParse(value);
-                  if (uri == null || !uri.hasAbsolutePath) {
-                    return 'Please enter a valid URL';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              
-              // Name input
-              TextFormField(
-                controller: _nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Feed Name (Optional)',
-                  hintText: 'My Awesome Feed',
-                  prefixIcon: Icon(Icons.label_rounded),
-                ),
-              ),
-              const SizedBox(height: 24),
-              
-              // Action buttons
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
-                      child: const Text('Cancel'),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: _isLoading ? null : _addFeed,
-                      child: _isLoading
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Text('Add Feed'),
-                    ),
-                  ),
-                ],
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
     );
   }
+}
 
-  Future<void> _addFeed() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    setState(() => _isLoading = true);
-
-    try {
-      final feedProvider = context.read<FeedProvider>();
-      await feedProvider.addFeed(_urlController.text.trim());
-
-      if (mounted) {
-        Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Feed added successfully!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to add feed: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
-  }
+Future<T?> showFuturisticDialog<T>({
+  required BuildContext context,
+  required String title,
+  required Widget content,
+  List<Widget>? actions,
+}) {
+  return showDialog<T>(
+    context: context,
+    barrierColor: Colors.black.withOpacity(0.4),
+    builder: (context) => FuturisticDialog(
+      title: title,
+      content: content,
+      actions: actions,
+    ),
+  );
 }
