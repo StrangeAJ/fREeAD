@@ -2,6 +2,8 @@ import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:freead/services/on_device_ai_service.dart';
 import '../providers/settings_provider.dart';
+import 'package:google_generative_ai/google_generative_ai.dart';
+
 import '../models/article.dart';
 import 'database_service.dart';
 
@@ -304,22 +306,29 @@ class SummarizationService implements Summarizer {
   }
 
   // Fix Gemini summarization to use proper Google AI API
-  Future<String> _summarizeGemini(String text, String apiKey, String model) async {
-    final modelName = model.isNotEmpty ? model : 'gemini-1.5-flash';
-    final url = 'https://generativelanguage.googleapis.com/v1beta/models/$modelName:generateContent?key=$apiKey';
-    final response = await _dio.post(url,
-      options: Options(headers: {
-        'Content-Type': 'application/json'
-      }),
-      data: {
-        'contents': [{
-          'parts': [{
-            'text': 'Please summarize the following text:\n\n$text'
-          }]
-        }]
-      },
-    );
-    return response.data['candidates'][0]['content']['parts'][0]['text'] as String;
+  Future<String> _summarizeGemini(String text, String apiKey, String modelId) async {
+    final modelName = modelId.isNotEmpty ? modelId : 'gemini-1.5-flash';
+
+    try {
+      final model = GenerativeModel(
+        model: modelName,
+        apiKey: apiKey,
+      );
+
+      final prompt = 'Please summarize the following text:\n\n$text';
+      final content = [Content.text(prompt)];
+      final response = await model.generateContent(content);
+
+      if (response.text != null) {
+        return response.text!;
+      } else {
+        throw Exception('Empty response from Gemini API');
+      }
+    } on GenerativeAIException catch (e) {
+      throw Exception('Gemini API Error: ${e.message}');
+    } catch (e) {
+      throw Exception('Gemini summarization failed: $e');
+    }
   }
 
   Future<String> _summarizePerplexity(String text, String apiKey, String model) async {
