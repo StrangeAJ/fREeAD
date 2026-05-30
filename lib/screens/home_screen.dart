@@ -1056,7 +1056,7 @@ class SettingsTab extends StatelessWidget {
               ...settings.availableAiProviders
                   .where((provider) => provider.key != SettingsProvider.providerNone)
                   .map((provider) {
-                final apiKey = _getApiKeyForProvider(settings, provider.key);
+                final apiKey = settings.getApiKeyForProvider(provider.key);
                 final isConfigured = apiKey.isNotEmpty;
 
                 return Padding(
@@ -1395,27 +1395,6 @@ class SettingsTab extends StatelessWidget {
   }
 
   // Helper methods for API key management
-  String _getApiKeyForProvider(SettingsProvider settings, String providerKey) {
-    switch (providerKey) {
-      case 'openai':
-        return settings.openaiApiKey;
-      case 'anthropic':
-      case 'claude':
-        return settings.claudeApiKey;
-      case 'google':
-      case 'gemini':
-        return settings.geminiApiKey;
-      case 'ollama':
-      case 'openrouter':
-        return settings.openrouterApiKey;
-      case 'perplexity':
-        return settings.perplexityApiKey;
-      case 'nvidia':
-        return settings.nvidiaApiKey;
-      default:
-        return '';
-    }
-  }
 
   IconData _getProviderIcon(String providerKey) {
     switch (providerKey) {

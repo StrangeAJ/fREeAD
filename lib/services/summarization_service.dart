@@ -67,7 +67,7 @@ class SummarizationService implements Summarizer {
       throw Exception('Please configure at least one AI provider in Settings → AI Models');
     }
 
-    final apiKey = prefs.getString(_getKeyForProvider(providerToUse)) ?? '';
+    final apiKey = settingsProvider.getApiKeyForProvider(providerToUse);
     if (apiKey.isEmpty) {
       throw Exception('Please add your API key for $providerToUse in Settings → AI Models');
     }
@@ -149,8 +149,7 @@ class SummarizationService implements Summarizer {
 
     while (retries < maxRetries) {
       try {
-        final prefs = await SharedPreferences.getInstance();
-        final apiKey = prefs.getString(_getKeyForProvider(currentProvider)) ?? '';
+        final apiKey = settingsProvider.getApiKeyForProvider(currentProvider);
 
         final model = settingsProvider.getModelForProvider(currentProvider);
         switch (currentProvider) {
@@ -197,24 +196,6 @@ class SummarizationService implements Summarizer {
     throw Exception('Max retries exceeded on all available providers');
   }
 
-  String _getKeyForProvider(String provider) {
-    switch (provider) {
-      case SettingsProvider.providerOpenAI:
-        return SettingsProvider.openaiKey;
-      case SettingsProvider.providerOpenRouter:
-        return SettingsProvider.openrouterKey;
-      case SettingsProvider.providerGemini:
-        return SettingsProvider.geminiKey;
-      case SettingsProvider.providerClaude:
-        return SettingsProvider.claudeKey;
-      case SettingsProvider.providerPerplexity:
-        return SettingsProvider.perplexityKey;
-      case SettingsProvider.providerNvidia:
-        return SettingsProvider.nvidiaKey;
-      default:
-        return SettingsProvider.openaiKey;
-    }
-  }
 
   Future<String> _summarizeOpenAI(String text, String apiKey, String model) async {
     const url = 'https://api.openai.com/v1/chat/completions';
