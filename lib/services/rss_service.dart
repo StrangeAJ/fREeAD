@@ -465,6 +465,14 @@ class RSSService {
     }
   }
 
+  static final _dayNameRegex = RegExp(r'[A-Za-z]{3},\s*');
+  static final _whitespaceRegex = RegExp(r'\s+');
+  static final _dateFormats = [
+    RegExp(r'(\d{1,2})\s+(\w+)\s+(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})'),
+    RegExp(r'(\d{4})-(\d{2})-(\d{2})\s+(\d{1,2}):(\d{2}):(\d{2})'),
+    RegExp(r'(\d{1,2})/(\d{1,2})/(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})'),
+  ];
+
   /// Parse date string to DateTime with multiple format support
   DateTime? _parseDate(String? dateString) {
     if (dateString == null || dateString.isEmpty) return null;
@@ -520,12 +528,12 @@ class RSSService {
           .replaceAll('&apos;', "'");
       
       // Clean up excessive whitespace
-      cleanText = cleanText.replaceAll(RegExp(r'\s+'), ' ').trim();
+      cleanText = cleanText.replaceAll(_whitespaceRegex, ' ').trim();
       
       return cleanText;
     } catch (e) {
       // If parsing fails, return original text with basic cleanup
-      return text.replaceAll(RegExp(r'\s+'), ' ').trim();
+      return text.replaceAll(_whitespaceRegex, ' ').trim();
     }
   }
 

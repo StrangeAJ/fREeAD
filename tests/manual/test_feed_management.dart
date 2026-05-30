@@ -55,7 +55,7 @@ void main() async {
   final dbService = DatabaseService();
 
   // Initialize database
-  final db = await dbService.database;
+  await dbService.database;
 
   // Test feeds
   final additionalTestFeeds = [
