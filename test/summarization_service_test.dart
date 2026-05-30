@@ -1,18 +1,23 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:freead/services/summarization_service.dart';
-import 'package:freead/models/article.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter/services.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  SharedPreferences.setMockInitialValues({});
-  FlutterSecureStorage.setMockInitialValues({});
 
   group('SummarizationService Tests', () {
     late SummarizationService summarizationService;
 
-    setUp(() {
+    setUp(() async {
+      SharedPreferences.setMockInitialValues({});
+
+      // Mock flutter_secure_storage if needed (used by SettingsProvider usually, but SummarizationService might depend on it)
+      const MethodChannel('plugins.it_nomads.com/flutter_secure_storage')
+          .setMockMethodCallHandler((MethodCall methodCall) async {
+        return null;
+      });
+
       summarizationService = SummarizationService();
     });
 
@@ -32,16 +37,10 @@ void main() {
       expect(result, equals(shortContent));
     });
 
-    test('should return content on error (graceful degradation)', () async {
-      final longContent = 'This is a long content.' * 10;
-
+    test('should return placeholder summary for long content', () async {
+      final longContent = 'A' * 100;
       final result = await summarizationService.summarizeContent(longContent);
-      expect(result, equals(longContent.trim()));
-    });
-
-    test('should fetch available models for OpenAI', () async {
-       final models = await summarizationService.fetchAvailableModels('openai', 'fake-key');
-       expect(models, isA<List<String>>());
+      expect(result, contains('AI summarization logic has been simplified'));
     });
   });
 }

@@ -1,36 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
 import '../models/article.dart';
 import '../providers/article_provider.dart';
 import '../providers/feed_provider.dart';
+import '../providers/settings_provider.dart';
 import '../screens/article_reading_screen.dart';
-import '../widgets/futuristic_widgets.dart';
-import 'package:intl/intl.dart';
-
-enum ArticleViewType { list, card, compact }
-enum ArticleSortType { newest, oldest, title, feed }
-enum ArticleFilterType { all, unread, starred, saved }
 
 class ArticleListWidget extends StatefulWidget {
-  final Future<List<Article>> Function() articlesLoader;
-  final String title;
-  final String emptyMessage;
-  final bool showSearchBar;
-  final bool showFilters;
-  final bool enableSwipeActions;
-  final VoidCallback? onRefresh;
-  final ArticleViewType defaultViewType;
+  final List<Article> articles;
+  final String? title;
+  final bool showFilter;
 
   const ArticleListWidget({
     super.key,
-    required this.articlesLoader,
-    required this.title,
-    this.emptyMessage = 'No articles found',
-    this.showSearchBar = true,
-    this.showFilters = true,
-    this.enableSwipeActions = true,
-    this.onRefresh,
-    this.defaultViewType = ArticleViewType.card,
+    required this.articles,
+    this.title,
+    this.showFilter = true,
   });
 
   @override
@@ -38,431 +24,251 @@ class ArticleListWidget extends StatefulWidget {
 }
 
 class _ArticleListWidgetState extends State<ArticleListWidget> {
-  late Future<List<Article>> _articlesFuture;
-  List<Article> _allArticles = [];
+  String _filter = 'all';
+  String _sortBy = 'newest';
   List<Article> _filteredArticles = [];
-
-  ArticleViewType _viewType = ArticleViewType.card;
-  ArticleSortType _sortType = ArticleSortType.newest;
-  ArticleFilterType _filterType = ArticleFilterType.all;
-
-  final TextEditingController _searchController = TextEditingController();
-  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
-    _viewType = widget.defaultViewType;
-    _loadArticles();
-    _searchController.addListener(_onSearchChanged);
+    _filteredArticles = widget.articles;
   }
 
   @override
-  void dispose() {
-    _searchController.removeListener(_onSearchChanged);
-    _searchController.dispose();
-    super.dispose();
-  }
-
-  void _loadArticles() {
-    setState(() {
-      _articlesFuture = widget.articlesLoader();
-    });
-  }
-
-  void _onSearchChanged() {
-    setState(() {
-      _searchQuery = _searchController.text.toLowerCase();
+  void didUpdateWidget(ArticleListWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.articles != widget.articles) {
       _applyFiltersAndSort();
-    });
+    }
   }
 
   void _applyFiltersAndSort() {
-    List<Article> filtered = List.from(_allArticles);
-
-    // Apply search filter
-    if (_searchQuery.isNotEmpty) {
-      filtered = filtered.where((article) {
-        return article.title.toLowerCase().contains(_searchQuery) ||
-               article.description.toLowerCase().contains(_searchQuery);
+    setState(() {
+      _filteredArticles = widget.articles.where((article) {
+        if (_filter == 'unread') return !article.isRead;
+        if (_filter == 'starred') return article.isStarred;
+        if (_filter == 'saved') return article.isSaved;
+        return true;
       }).toList();
-    }
 
-    // Apply status filter
-    switch (_filterType) {
-      case ArticleFilterType.unread:
-        filtered = filtered.where((article) => !article.isRead).toList();
-        break;
-      case ArticleFilterType.starred:
-        filtered = filtered.where((article) => article.isStarred).toList();
-        break;
-      case ArticleFilterType.saved:
-        filtered = filtered.where((article) => article.isSaved).toList();
-        break;
-      case ArticleFilterType.all:
-        break;
-    }
-
-    // Apply sorting
-    switch (_sortType) {
-      case ArticleSortType.newest:
-        filtered.sort((a, b) => b.publishedDate.compareTo(a.publishedDate));
-        break;
-      case ArticleSortType.oldest:
-        filtered.sort((a, b) => a.publishedDate.compareTo(b.publishedDate));
-        break;
-      case ArticleSortType.title:
-        filtered.sort((a, b) => a.title.compareTo(b.title));
-        break;
-      case ArticleSortType.feed:
-        filtered.sort((a, b) => a.feedId.compareTo(b.feedId));
-        break;
-    }
-
-    _filteredArticles = filtered;
+      if (_sortBy == 'newest') {
+        _filteredArticles.sort((a, b) => b.publishedDate.compareTo(a.publishedDate));
+      } else if (_sortBy == 'oldest') {
+        _filteredArticles.sort((a, b) => a.publishedDate.compareTo(b.publishedDate));
+      } else if (_sortBy == 'title') {
+        _filteredArticles.sort((a, b) => a.title.compareTo(b.title));
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.title),
-        actions: [
-          // View type toggle
-          PopupMenuButton<ArticleViewType>(
-            icon: Icon(_getViewTypeIcon()),
-            onSelected: (type) {
-              setState(() {
-                _viewType = type;
-              });
-            },
-            itemBuilder: (context) => [
-              PopupMenuItem(
-                value: ArticleViewType.card,
-                child: Row(
-                  children: [
-                    Icon(Icons.view_agenda_rounded),
-                    SizedBox(width: 8),
-                    Text('Card View'),
-                  ],
-                ),
-              ),
-              PopupMenuItem(
-                value: ArticleViewType.list,
-                child: Row(
-                  children: [
-                    Icon(Icons.view_list_rounded),
-                    SizedBox(width: 8),
-                    Text('List View'),
-                  ],
-                ),
-              ),
-              PopupMenuItem(
-                value: ArticleViewType.compact,
-                child: Row(
-                  children: [
-                    Icon(Icons.view_headline_rounded),
-                    SizedBox(width: 8),
-                    Text('Compact View'),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          // Sort menu
-          if (widget.showFilters)
-            PopupMenuButton<ArticleSortType>(
-              icon: Icon(Icons.sort_rounded),
-              onSelected: (type) {
-                setState(() {
-                  _sortType = type;
-                  _applyFiltersAndSort();
-                });
-              },
-              itemBuilder: (context) => [
-                PopupMenuItem(
-                  value: ArticleSortType.newest,
-                  child: Text('Newest First'),
-                ),
-                PopupMenuItem(
-                  value: ArticleSortType.oldest,
-                  child: Text('Oldest First'),
-                ),
-                PopupMenuItem(
-                  value: ArticleSortType.title,
-                  child: Text('By Title'),
-                ),
-                PopupMenuItem(
-                  value: ArticleSortType.feed,
-                  child: Text('By Feed'),
-                ),
-              ],
+    if (_filteredArticles.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.article_outlined, size: 64, color: Theme.of(context).colorScheme.outline),
+            const SizedBox(height: 16),
+            Text(
+              'No articles found',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Theme.of(context).colorScheme.outline),
             ),
-          // Refresh button
-          if (widget.onRefresh != null)
-            IconButton(
-              icon: Icon(Icons.refresh_rounded),
-              onPressed: () {
-                widget.onRefresh!();
-                _loadArticles();
-              },
-            ),
-        ],
-      ),
-      body: Column(
-        children: [
-          // Search bar
-          if (widget.showSearchBar)
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: TextField(
-                controller: _searchController,
-                decoration: InputDecoration(
-                  hintText: 'Search articles...',
-                  prefixIcon: Icon(Icons.search_rounded),
-                  suffixIcon: _searchQuery.isNotEmpty
-                      ? IconButton(
-                          icon: Icon(Icons.clear_rounded),
-                          onPressed: () {
-                            _searchController.clear();
-                          },
-                        )
-                      : null,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-            ),
+          ],
+        ),
+      );
+    }
 
-          // Filter chips
-          if (widget.showFilters)
-            Container(
-              height: 60,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: ListView(
-                scrollDirection: Axis.horizontal,
+    return Column(
+      children: [
+        if (widget.showFilter) _buildFilterBar(),
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            itemCount: _filteredArticles.length,
+            itemBuilder: (context, index) {
+              final article = _filteredArticles[index];
+              return _buildModernArticleCard(article);
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFilterBar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
                 children: [
-                  _buildFilterChip('All', ArticleFilterType.all),
-                  SizedBox(width: 8),
-                  _buildFilterChip('Unread', ArticleFilterType.unread),
-                  SizedBox(width: 8),
-                  _buildFilterChip('Starred', ArticleFilterType.starred),
-                  SizedBox(width: 8),
-                  _buildFilterChip('Saved', ArticleFilterType.saved),
+                  _buildFilterChip('All', 'all'),
+                  const SizedBox(width: 8),
+                  _buildFilterChip('Unread', 'unread'),
+                  const SizedBox(width: 8),
+                  _buildFilterChip('Starred', 'starred'),
+                  const SizedBox(width: 8),
+                  _buildFilterChip('Saved', 'saved'),
                 ],
               ),
             ),
-
-          // Articles list
-          Expanded(
-            child: FutureBuilder<List<Article>>(
-              future: _articlesFuture,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return Center(child: CircularProgressIndicator());
-                }
-
-                if (snapshot.hasError) {
-                  return Center(
-                    child: FuturisticCard(
-                      padding: EdgeInsets.all(32),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.error_rounded,
-                            size: 64,
-                            color: Theme.of(context).colorScheme.error,
-                          ),
-                          SizedBox(height: 16),
-                          Text(
-                            'Error Loading Articles',
-                            style: Theme.of(context).textTheme.titleLarge,
-                          ),
-                          SizedBox(height: 8),
-                          Text(
-                            '${snapshot.error}',
-                            textAlign: TextAlign.center,
-                          ),
-                          SizedBox(height: 16),
-                          ElevatedButton(
-                            onPressed: _loadArticles,
-                            child: Text('Retry'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                }
-
-                _allArticles = snapshot.data ?? [];
-                _applyFiltersAndSort();
-
-                if (_filteredArticles.isEmpty) {
-                  return Center(
-                    child: FuturisticCard(
-                      padding: EdgeInsets.all(32),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.article_rounded,
-                            size: 64,
-                            color: Theme.of(context).colorScheme.primary.withOpacity(0.6),
-                          ),
-                          SizedBox(height: 16),
-                          Text(
-                            widget.emptyMessage,
-                            style: Theme.of(context).textTheme.titleLarge,
-                          ),
-                          if (_searchQuery.isNotEmpty || _filterType != ArticleFilterType.all) ...[
-                            SizedBox(height: 8),
-                            Text(
-                              'Try adjusting your search or filters',
-                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  );
-                }
-
-                return RefreshIndicator(
-                  onRefresh: () async {
-                    if (widget.onRefresh != null) {
-                      widget.onRefresh!();
-                    }
-                    _loadArticles();
-                  },
-                  child: _buildArticlesList(),
-                );
-              },
-            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.sort_rounded),
+            onPressed: _showSortDialog,
+            tooltip: 'Sort articles',
           ),
         ],
       ),
     );
   }
 
-  IconData _getViewTypeIcon() {
-    switch (_viewType) {
-      case ArticleViewType.card:
-        return Icons.view_agenda_rounded;
-      case ArticleViewType.list:
-        return Icons.view_list_rounded;
-      case ArticleViewType.compact:
-        return Icons.view_headline_rounded;
-    }
+  Widget _buildFilterChip(String label, String value) {
+    final isSelected = _filter == value;
+    return ChoiceChip(
+      label: Text(label),
+      selected: isSelected,
+      onSelected: (selected) {
+        if (selected) {
+          setState(() {
+            _filter = value;
+            _applyFiltersAndSort();
+          });
+        }
+      },
+      showCheckmark: false,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    );
   }
 
-  Widget _buildFilterChip(String label, ArticleFilterType type) {
-    return FilterChip(
-      label: Text(label),
-      selected: _filterType == type,
-      onSelected: (selected) {
-        setState(() {
-          _filterType = type;
-          _applyFiltersAndSort();
-        });
+  void _showSortDialog() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.symmetric(vertical: 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Sort by', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              _buildSortOption('Newest First', 'newest'),
+              _buildSortOption('Oldest First', 'oldest'),
+              _buildSortOption('Title (A-Z)', 'title'),
+            ],
+          ),
+        );
       },
     );
   }
 
-  Widget _buildArticlesList() {
-    switch (_viewType) {
-      case ArticleViewType.card:
-        return ListView.builder(
-          itemCount: _filteredArticles.length,
-          itemBuilder: (context, index) => _buildCardView(_filteredArticles[index]),
-        );
-      case ArticleViewType.list:
-        return ListView.builder(
-          itemCount: _filteredArticles.length,
-          itemBuilder: (context, index) => _buildListView(_filteredArticles[index]),
-        );
-      case ArticleViewType.compact:
-        return ListView.builder(
-          itemCount: _filteredArticles.length,
-          itemBuilder: (context, index) => _buildCompactView(_filteredArticles[index]),
-        );
-    }
+  Widget _buildSortOption(String label, String value) {
+    return ListTile(
+      title: Text(label),
+      leading: Radio<String>(
+        value: value,
+        groupValue: _sortBy,
+        onChanged: (newValue) {
+          setState(() {
+            _sortBy = newValue!;
+            _applyFiltersAndSort();
+          });
+          Navigator.pop(context);
+        },
+      ),
+      onTap: () {
+        setState(() {
+          _sortBy = value;
+          _applyFiltersAndSort();
+        });
+        Navigator.pop(context);
+      },
+    );
   }
 
-  Widget _buildCardView(Article article) {
+  Widget _buildModernArticleCard(Article article) {
     return Consumer<FeedProvider>(
       builder: (context, feedProvider, child) {
         final feed = feedProvider.getFeedById(article.feedId);
+        final theme = Theme.of(context);
 
-        return FuturisticCard(
-          margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        return Card(
+          elevation: 0,
+          clipBehavior: Clip.antiAlias,
           child: InkWell(
             onTap: () => _openArticle(article),
-            borderRadius: BorderRadius.circular(12),
-            child: Padding(
-              padding: EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Header with feed info and date
-                  Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (article.imageUrl != null && article.imageUrl!.isNotEmpty)
+                  AspectRatio(
+                    aspectRatio: 16 / 9,
+                    child: Image.network(
+                      article.imageUrl!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => Container(
+                        color: theme.colorScheme.surfaceVariant,
+                        child: const Icon(Icons.broken_image_outlined, size: 48),
+                      ),
+                    ),
+                  ),
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: Text(
-                          feed?.title ?? 'Unknown Feed',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Theme.of(context).colorScheme.primary,
-                            fontWeight: FontWeight.w500,
+                      Row(
+                        children: [
+                          if (feed != null && feed.iconUrl != null)
+                            Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: CircleAvatar(
+                                radius: 8,
+                                backgroundImage: NetworkImage(feed.iconUrl!),
+                              ),
+                            ),
+                          Text(
+                            feed?.title ?? 'Unknown Source',
+                            style: theme.textTheme.labelSmall,
                           ),
-                        ),
+                          const Spacer(),
+                          Text(
+                            DateFormat('MMM d, yyyy').format(article.publishedDate),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurface.withOpacity(0.6),
+                            ),
+                          ),
+                        ],
                       ),
+                      const SizedBox(height: 12),
                       Text(
-                        DateFormat('MMM d, HH:mm').format(article.publishedDate),
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                        article.title,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: article.isRead ? FontWeight.w500 : FontWeight.w700,
+                          color: article.isRead ? theme.colorScheme.onSurface.withOpacity(0.7) : null,
                         ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    ],
-                  ),
-                  SizedBox(height: 8),
-
-                  // Title
-                  Text(
-                    article.title,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: article.isRead ? FontWeight.normal : FontWeight.bold,
-                      color: article.isRead
-                          ? Theme.of(context).colorScheme.onSurface.withOpacity(0.7)
-                          : null,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-
-                  // Description
-                  if (article.description.isNotEmpty) ...[
-                    SizedBox(height: 8),
-                    Text(
-                      article.description,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
-                      ),
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-
-                  SizedBox(height: 12),
-
-                  // Actions row
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
+                      if (article.description.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          article.description,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurface.withOpacity(0.8),
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                      const SizedBox(height: 16),
                       Row(
                         children: [
                           if (!article.isRead)
@@ -470,23 +276,11 @@ class _ArticleListWidgetState extends State<ArticleListWidget> {
                               width: 8,
                               height: 8,
                               decoration: BoxDecoration(
-                                color: Theme.of(context).colorScheme.primary,
+                                color: theme.colorScheme.primary,
                                 shape: BoxShape.circle,
                               ),
                             ),
-                          if (!article.isRead) SizedBox(width: 8),
-                          if (article.author?.isNotEmpty == true)
-                            Text(
-                              'by ${article.author}',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-                              ),
-                            ),
-                        ],
-                      ),
-                      Row(
-                        children: [
+                          const Spacer(),
                           IconButton(
                             icon: Icon(
                               article.isStarred ? Icons.star_rounded : Icons.star_border_rounded,
@@ -498,165 +292,26 @@ class _ArticleListWidgetState extends State<ArticleListWidget> {
                           IconButton(
                             icon: Icon(
                               article.isSaved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
-                              color: article.isSaved ? Theme.of(context).colorScheme.primary : null,
+                              color: article.isSaved ? theme.colorScheme.primary : null,
                             ),
                             onPressed: () => _toggleSaved(article),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.share_outlined),
+                            onPressed: () {
+                              // Basic share placeholder
+                            },
                             visualDensity: VisualDensity.compact,
                           ),
                         ],
                       ),
                     ],
                   ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildListView(Article article) {
-    return Consumer<FeedProvider>(
-      builder: (context, feedProvider, child) {
-        final feed = feedProvider.getFeedById(article.feedId);
-
-        return ListTile(
-          leading: CircleAvatar(
-            backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-            child: Icon(
-              Icons.article_rounded,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-          ),
-          title: Text(
-            article.title,
-            style: TextStyle(
-              fontWeight: article.isRead ? FontWeight.normal : FontWeight.bold,
-              color: article.isRead
-                  ? Theme.of(context).colorScheme.onSurface.withOpacity(0.7)
-                  : null,
-            ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          subtitle: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (article.description.isNotEmpty) ...[
-                SizedBox(height: 4),
-                Text(
-                  article.description,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
                 ),
               ],
-              SizedBox(height: 4),
-              Row(
-                children: [
-                  Text(
-                    feed?.title ?? 'Unknown Feed',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                  ),
-                  SizedBox(width: 8),
-                  Text(
-                    DateFormat('MMM d').format(article.publishedDate),
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (!article.isRead)
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-              SizedBox(width: 8),
-              if (article.isStarred)
-                Icon(Icons.star_rounded, color: Colors.amber, size: 16),
-              if (article.isSaved)
-                Icon(Icons.bookmark_rounded, color: Theme.of(context).colorScheme.primary, size: 16),
-            ],
-          ),
-          onTap: () => _openArticle(article),
-        );
-      },
-    );
-  }
-
-  Widget _buildCompactView(Article article) {
-    return Consumer<FeedProvider>(
-      builder: (context, feedProvider, child) {
-        final feed = feedProvider.getFeedById(article.feedId);
-
-        return ListTile(
-          dense: true,
-          title: Text(
-            article.title,
-            style: TextStyle(
-              fontWeight: article.isRead ? FontWeight.normal : FontWeight.bold,
-              color: article.isRead
-                  ? Theme.of(context).colorScheme.onSurface.withOpacity(0.7)
-                  : null,
             ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
           ),
-          subtitle: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  feed?.title ?? 'Unknown Feed',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              Text(
-                DateFormat('MMM d').format(article.publishedDate),
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-                ),
-              ),
-            ],
-          ),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (!article.isRead)
-                Container(
-                  width: 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-              if (article.isStarred)
-                Icon(Icons.star_rounded, color: Colors.amber, size: 14),
-              if (article.isSaved)
-                Icon(Icons.bookmark_rounded, color: Theme.of(context).colorScheme.primary, size: 14),
-            ],
-          ),
-          onTap: () => _openArticle(article),
         );
       },
     );
@@ -673,21 +328,9 @@ class _ArticleListWidgetState extends State<ArticleListWidget> {
 
   void _toggleStar(Article article) {
     context.read<ArticleProvider>().toggleStar(article.id);
-    // Don't try to modify the immutable article object directly
-    // The provider will handle updating the state and notify listeners
-    setState(() {
-      // Refresh the filtered articles after the provider updates
-      _applyFiltersAndSort();
-    });
   }
 
   void _toggleSaved(Article article) {
     context.read<ArticleProvider>().toggleSaved(article.id);
-    // Don't try to modify the immutable article object directly
-    // The provider will handle updating the state and notify listeners
-    setState(() {
-      // Refresh the filtered articles after the provider updates
-      _applyFiltersAndSort();
-    });
   }
 }

@@ -5,9 +5,6 @@ import 'package:flutter/foundation.dart';
 
 /// Enhanced article extraction service inspired by Mozilla's Readability.js
 class EnhancedArticleService {
-  static final _whitespaceRegex = RegExp(r'\s+');
-  static final _sentenceSplitRegex = RegExp(r'[.!?]+');
-
   final Dio _dio;
 
   // Readability constants
@@ -26,10 +23,8 @@ class EnhancedArticleService {
       connectTimeout: const Duration(seconds: 30),
       receiveTimeout: const Duration(seconds: 45),
       headers: {
-        'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept':
-            'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.5',
         'Accept-Encoding': 'gzip, deflate',
         'Cache-Control': 'no-cache',
@@ -46,8 +41,7 @@ class EnhancedArticleService {
 
       String requestUrl = url;
       if (kIsWeb) {
-        requestUrl =
-            'https://api.allorigins.win/get?url=${Uri.encodeComponent(url)}';
+        requestUrl = 'https://api.allorigins.win/get?url=${Uri.encodeComponent(url)}';
       }
 
       final response = await _dio.get(requestUrl);
@@ -87,10 +81,7 @@ class EnhancedArticleService {
   }
 
   /// Processes HTML content using readability algorithm
-  Future<Map<String, dynamic>?> _processArticle(
-    String htmlContent,
-    String url,
-  ) async {
+  Future<Map<String, dynamic>?> _processArticle(String htmlContent, String url) async {
     try {
       // Parse HTML
       final document = html_parser.parse(htmlContent);
@@ -140,14 +131,7 @@ class EnhancedArticleService {
   /// Prepares document for processing (removes unwanted elements)
   void _prepareDocument(dom.Document document) {
     // Remove unwanted elements
-    final unwantedTags = [
-      'script',
-      'style',
-      'noscript',
-      'iframe',
-      'embed',
-      'object',
-    ];
+    final unwantedTags = ['script', 'style', 'noscript', 'iframe', 'embed', 'object'];
     for (final tag in unwantedTags) {
       final elements = document.querySelectorAll(tag);
       for (final element in elements) {
@@ -210,24 +194,8 @@ class EnhancedArticleService {
 
   /// Checks if element has child block elements
   bool _hasChildBlockElement(dom.Element element) {
-    final blockElements = [
-      'p',
-      'div',
-      'h1',
-      'h2',
-      'h3',
-      'h4',
-      'h5',
-      'h6',
-      'blockquote',
-      'pre',
-      'ul',
-      'ol',
-      'li',
-      'table',
-      'tr',
-      'td',
-    ];
+    final blockElements = ['p', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+                          'blockquote', 'pre', 'ul', 'ol', 'li', 'table', 'tr', 'td'];
 
     for (final child in element.children) {
       if (blockElements.contains(child.localName?.toLowerCase())) {
@@ -286,14 +254,8 @@ class EnhancedArticleService {
   String? _getAuthor(dom.Document document) {
     // Try common author selectors
     final authorSelectors = [
-      '.author',
-      '.byline',
-      '.by-author',
-      '.article-author',
-      '[rel="author"]',
-      '[itemprop="author"]',
-      '.writer',
-      '.journalist',
+      '.author', '.byline', '.by-author', '.article-author',
+      '[rel="author"]', '[itemprop="author"]', '.writer', '.journalist'
     ];
 
     for (final selector in authorSelectors) {
@@ -349,8 +311,7 @@ class EnhancedArticleService {
         elementsToScore.add(parentNode);
       }
 
-      if (grandParentNode != null &&
-          !elementsToScore.contains(grandParentNode)) {
+      if (grandParentNode != null && !elementsToScore.contains(grandParentNode)) {
         elementsToScore.add(grandParentNode);
       }
     }
@@ -439,7 +400,7 @@ class EnhancedArticleService {
     // Positive indicators
     final positivePattern = RegExp(
       r'article|body|content|entry|hentry|h-entry|main|page|pagination|post|text|blog|story',
-      caseSensitive: false,
+      caseSensitive: false
     );
     if (positivePattern.hasMatch(classAndId)) {
       score += 25;
@@ -448,7 +409,7 @@ class EnhancedArticleService {
     // Negative indicators
     final negativePattern = RegExp(
       r'-ad-|hidden|^hid$| hid$| hid |^hid |banner|combx|comment|com-|contact|footer|gdpr|masthead|media|meta|outbrain|promo|related|scroll|share|shoutbox|sidebar|skyscraper|sponsor|shopping|tags|widget',
-      caseSensitive: false,
+      caseSensitive: false
     );
     if (negativePattern.hasMatch(classAndId)) {
       score -= 25;
@@ -508,40 +469,14 @@ class EnhancedArticleService {
   /// Removes unwanted elements from article content
   void _removeUnwantedElements(dom.Element element) {
     final unwantedSelectors = [
-      'script',
-      'style',
-      'nav',
-      'header',
-      'footer',
-      'aside',
-      '.advertisement',
-      '.ads',
-      '.ad',
-      '.sidebar',
-      '.menu',
-      '.comments',
-      '.social',
-      '.share',
-      '.related',
-      '.tags',
-      '.navigation',
-      '.breadcrumb',
-      '.pagination',
-      '.toolbar',
-      '[class*="ad"]',
-      '[id*="ad"]',
-      '[class*="sidebar"]',
-      '[class*="menu"]',
-      '[class*="nav"]',
-      '[class*="comment"]',
-      '[class*="social"]',
-      '.widget',
-      '.popup',
-      '.modal',
-      '.overlay',
-      '.banner',
-      '.promo',
-      '.sponsored',
+      'script', 'style', 'nav', 'header', 'footer', 'aside',
+      '.advertisement', '.ads', '.ad', '.sidebar', '.menu',
+      '.comments', '.social', '.share', '.related', '.tags',
+      '.navigation', '.breadcrumb', '.pagination', '.toolbar',
+      '[class*="ad"]', '[id*="ad"]', '[class*="sidebar"]',
+      '[class*="menu"]', '[class*="nav"]', '[class*="comment"]',
+      '[class*="social"]', '.widget', '.popup', '.modal',
+      '.overlay', '.banner', '.promo', '.sponsored',
     ];
 
     for (final selector in unwantedSelectors) {
@@ -576,9 +511,7 @@ class EnhancedArticleService {
       final links = element.querySelectorAll('a[href]');
       for (final link in links) {
         final href = link.attributes['href'];
-        if (href != null &&
-            !href.startsWith('http') &&
-            !href.startsWith('mailto:')) {
+        if (href != null && !href.startsWith('http') && !href.startsWith('mailto:')) {
           final absoluteUrl = baseUri.resolve(href).toString();
           link.attributes['href'] = absoluteUrl;
         }
@@ -591,29 +524,10 @@ class EnhancedArticleService {
   /// Cleans unwanted attributes from elements
   void _cleanAttributes(dom.Element element) {
     final unwantedAttributes = [
-      'style',
-      'onclick',
-      'onload',
-      'onerror',
-      'onmouseover',
-      'onmouseout',
-      'onfocus',
-      'onblur',
-      'onsubmit',
-      'onreset',
-      'onchange',
-      'onkeydown',
-      'onkeyup',
-      'onkeypress',
-      'tabindex',
-      'contenteditable',
-      'draggable',
-      'spellcheck',
-      'translate',
-      'dir',
-      'lang',
-      'xml:lang',
-      'xmlns',
+      'style', 'onclick', 'onload', 'onerror', 'onmouseover', 'onmouseout',
+      'onfocus', 'onblur', 'onsubmit', 'onreset', 'onchange', 'onkeydown',
+      'onkeyup', 'onkeypress', 'tabindex', 'contenteditable', 'draggable',
+      'spellcheck', 'translate', 'dir', 'lang', 'xml:lang', 'xmlns',
     ];
 
     final attributesToRemove = <String>[];
@@ -662,10 +576,7 @@ class EnhancedArticleService {
 
     // Clean up the text
     String excerpt = textContent
-        .replaceAll(
-          _whitespaceRegex,
-          ' ',
-        ) // Replace multiple whitespace with single space
+        .replaceAll(RegExp(r'\s+'), ' ')  // Replace multiple whitespace with single space
         .trim();
 
     if (excerpt.length <= maxLength) {
@@ -673,7 +584,7 @@ class EnhancedArticleService {
     }
 
     // Find the last complete sentence within the limit
-    final sentences = excerpt.split(_sentenceSplitRegex);
+    final sentences = excerpt.split(RegExp(r'[.!?]+'));
     final buffer = StringBuffer();
 
     for (final sentence in sentences) {

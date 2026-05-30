@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'dart:ui';
 import '../providers/feed_provider.dart';
 import '../providers/article_provider.dart';
 import '../providers/settings_provider.dart';
@@ -11,7 +12,7 @@ import '../widgets/futuristic_widgets.dart';
 import '../widgets/futuristic_dialogs.dart';
 import '../widgets/futuristic_search_delegate.dart';
 import '../widgets/feed_summary_dialog.dart';
-import '../utils/time_formatter.dart';
+import '../widgets/article_list_widget.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -26,14 +27,12 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
     
     return Scaffold(
       extendBody: true,
       extendBodyBehindAppBar: true,
-      backgroundColor: Colors.transparent,
       appBar: FuturisticAppBar(
-        title: 'fREeAD',
+        title: 'FreeAd',
         actions: [
           IconButton(
             icon: const Icon(Icons.rss_feed_rounded),
@@ -49,7 +48,7 @@ class _HomeScreenState extends State<HomeScreen> {
             onPressed: () => _showSearch(),
           ),
           IconButton(
-            icon: const Icon(Icons.auto_awesome),
+            icon: const Icon(Icons.auto_awesome_outlined),
             tooltip: 'Summarize Feed',
             onPressed: () {
               _showFeedSummaryDialog(context);
@@ -57,48 +56,59 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      body: AnimatedGradientBackground(
-        colors: isDark ? [
-          const Color.fromARGB(255, 0, 0, 0),
-          const Color.fromARGB(250, 10, 10, 10),
-          const Color.fromARGB(240, 40, 40, 40),
-        ] : [
-          const Color(0xFFF5F5F7),
-          const Color.fromARGB(255, 205, 205, 205),
-          const Color.fromARGB(255, 190, 190, 190),
-        ],
-        duration: const Duration(seconds: 30),
+      body: Container(
+        color: theme.colorScheme.surface,
         child: SafeArea(
+          bottom: false,
           child: _buildBody(),
         ),
       ),
-      bottomNavigationBar: FuturisticBottomNav(
-        currentIndex: _selectedIndex,
-        onTap: (index) => setState(() => _selectedIndex = index),
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_rounded),
-            label: 'Home',
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 20,
+              offset: const Offset(0, -5),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: BottomNavigationBar(
+              currentIndex: _selectedIndex,
+              onTap: (index) => setState(() => _selectedIndex = index),
+              items: const [
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.home_outlined),
+                  activeIcon: Icon(Icons.home_rounded),
+                  label: 'Home',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.category_outlined),
+                  activeIcon: Icon(Icons.category_rounded),
+                  label: 'Feeds',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.bookmark_outline_rounded),
+                  activeIcon: Icon(Icons.bookmark_rounded),
+                  label: 'Saved',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.settings_outlined),
+                  activeIcon: Icon(Icons.settings_rounded),
+                  label: 'Settings',
+                ),
+              ],
+            ),
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.category_rounded),
-            label: 'Categories',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.bookmark_rounded),
-            label: 'Saved',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings_rounded),
-            label: 'Settings',
-          ),
-        ],
+        ),
       ),
-      floatingActionButton: FuturisticFAB(
+      floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddFeedDialog(),
-        icon: Icons.add_rounded,
         tooltip: 'Add Feed',
-        showPulse: true,
+        child: const Icon(Icons.add_rounded),
       ),
     );
   }
@@ -164,320 +174,17 @@ class HomeTab extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<ArticleProvider>(
       builder: (context, articleProvider, child) {
-        if (articleProvider.isLoading) {
+        if (articleProvider.isLoading && articleProvider.articles.isEmpty) {
           return const Center(child: CircularProgressIndicator());
         }
 
-        if (articleProvider.error != null) {
-          return Center(
-            child:
-                Flexible(
-                  child:
-                      FuturisticCard(
-              showGlow: true,
-              glowColor: Colors.yellowAccent,
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.error_outline_rounded,
-                    size: 48,
-                    color: Theme.of(context).colorScheme.error,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Error loading articles',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    articleProvider.error!,
-                    style: Theme.of(context).textTheme.bodyMedium,
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: () => articleProvider.loadArticles(),
-                    child: const Text('Retry'),
-                  ),
-                ],
-              ),
-            ),
-                  ),
-          );
-        }
-
         final articles = articleProvider.articles;
-        if (articles.isEmpty) {
-          return Center(
-            child: FuturisticCard(
-              glowColor: Colors.redAccent,
-              padding: const EdgeInsets.all(32),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.rss_feed_rounded, 
-                    size: 64, 
-                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.6),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'No articles yet',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Add some RSS feeds to get started',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }
-
-        // Function to get Feed Name and Feed Icon URL
-        String _getFeedName(String feedId) {
-          final feedProvider = context.read<FeedProvider>();
-          final feed = feedProvider.getFeedById(feedId);
-          return feed?.title ?? 'Unknown Feed';
-        }
-
-        String? _getFeedIconUrl(String feedId) {
-          final feedProvider = context.read<FeedProvider>();
-          final feed = feedProvider.getFeedById(feedId);
-          return feed?.imageUrl;
-        }
 
         return RefreshIndicator(
           onRefresh: () => articleProvider.refreshAllArticles(),
-          child: ListView.builder(
-            padding: const EdgeInsets.only(bottom: 100), // Account for bottom nav
-            itemCount: articles.length,
-            itemBuilder: (context, index) {
-              final article = articles[index];
-              return FuturisticCard(
-                onTap: () => _openArticle(context, article),
-                showGlow: !article.isRead,
-                glowColor: const Color.fromARGB(194, 105, 160, 255),
-                borderColor: article.isRead ? const Color.fromARGB(105, 255, 255, 0) : const Color.fromARGB(255, 195, 105, 255),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Article image
-                    Column(
-                      children: [
-                        Container(
-                          width: 80,
-                          height: 80,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(16), color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                          ),
-                          child: article.imageUrl != null
-                              ? ClipRRect(
-                            borderRadius: BorderRadius.circular(16),
-                            child: Image.network(
-                              article.imageUrl!,
-                              width: 80,
-                              height: 80,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return Container(
-                                  width: 80,
-                                  height: 80,
-                                  decoration: BoxDecoration(
-                                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                  child: Icon(
-                                    Icons.article_rounded,
-                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                  ),
-                                );
-                              },
-                            ),
-                          )
-                              : Icon(
-                            Icons.article_outlined,
-                            size: 40,
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                        // Add Feed Icon or Name of Feed Here
-                        const SizedBox(height: 8),
-                        Container(
-                          width: 80,
-                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
-                              width: 1,
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              // Feed icon or RSS icon
-                              _getFeedIconUrl(article.feedId) != null
-                                ? ClipRRect(
-                                    borderRadius: BorderRadius.circular(4),
-                                    child: Image.network(
-                                      _getFeedIconUrl(article.feedId)!,
-                                      width: 12,
-                                      height: 12,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (context, error, stackTrace) {
-                                        return Icon(
-                                          Icons.rss_feed,
-                                          size: 12,
-                                          color: Theme.of(context).colorScheme.primary,
-                                        );
-                                      },
-                                    ),
-                                  )
-                                : Icon(
-                                    Icons.rss_feed,
-                                    size: 12,
-                                    color: Theme.of(context).colorScheme.primary,
-                                  ),
-                              const SizedBox(width: 4),
-                              // Feed name
-                              Expanded(
-                                child: Text(
-                                  _getFeedName(article.feedId),
-                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: Theme.of(context).colorScheme.primary,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(width: 16),
-                    
-                    // Article content
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            article.title,
-                            maxLines: 4,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: article.isRead ? FontWeight.w500 : FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            article.description,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Flexible(flex: 1,
-                              child :
-                                Row(
-                                    children:[
-                                      Icon(
-                                      Icons.access_time_rounded,
-                                      size: 16,
-                                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
-                                      ),
-                                      const SizedBox(width: 2),
-                                      Text(
-                                TimeFormatter.formatRelativeTime(article.publishedDate),
-                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
-                                ),
-                              )
-                                    ]
-                                )
-                              ),
-                              Flexible(flex: 1,
-                                child :
-                                Row(
-                                  children:[
-                                    Icon(
-                                      Icons.person_rounded,
-                                      size: 16,
-                                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
-                                    ),
-                                    const SizedBox(width: 2),
-                                    Expanded(child:
-                                    Text(
-                                      article.author?.trimLeft() ?? 'Unknown',
-                                      overflow: TextOverflow.ellipsis,
-                                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
-
-                                      ),
-                                    ),
-                                    )
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    
-                    // Action buttons
-                    Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: Icon(
-                            article.isSaved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
-                            color: article.isSaved ? Colors.orange : null,
-                          ),
-                          onPressed: () => articleProvider.toggleSaved(article.id),
-                        ),
-                        IconButton(
-                          icon: Icon(
-                            article.isStarred ? Icons.star_rounded : Icons.star_border_rounded,
-                            color: article.isStarred ? Colors.amber : null,
-                          ),
-                          onPressed: () => articleProvider.toggleStarred(article.id),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
+          child: ArticleListWidget(articles: articles),
         );
       },
-    );
-  }
-
-  void _openArticle(BuildContext context, article) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => ArticleReadingScreen(article: article),
-      ),
     );
   }
 }
@@ -493,116 +200,61 @@ class CategoriesTab extends StatelessWidget {
           return const Center(child: CircularProgressIndicator());
         }
 
-        final categories = feedProvider.categories;
-        if (categories.isEmpty) {
+        final feeds = feedProvider.feeds;
+        if (feeds.isEmpty) {
           return Center(
-            child: FuturisticCard(
-              padding: const EdgeInsets.all(32),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.category_rounded,
-                    size: 64,
-                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.6),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'No categories yet',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Categories will appear here as you add feeds',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-                    ),
-                  ),
-                ],
-              ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.rss_feed_rounded, size: 64, color: Theme.of(context).colorScheme.outline),
+                const SizedBox(height: 16),
+                const Text('No feeds added yet'),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () => _showAddFeedDialog(context),
+                  child: const Text('Add your first feed'),
+                ),
+              ],
             ),
           );
         }
 
         return ListView.builder(
-          padding: const EdgeInsets.only(bottom: 100), // Account for bottom nav
-          itemCount: categories.length,
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+          itemCount: feeds.length,
           itemBuilder: (context, index) {
-            final category = categories[index];
-            final feedCount = feedProvider.getFeedsByCategory(category.id).length;
-            return FuturisticCard(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => CategoryArticlesScreen(
-                      categoryId: category.id,
-                      categoryName: category.name,
-                    ),
-                  ),
-                );
-              },
-              child: Row(
-                children: [
-                  Container(
-                    width: 60,
-                    height: 60,
-                    decoration: BoxDecoration(
-                      color: category.color != null 
-                          ? Color(int.parse(category.color!.substring(1, 7), radix: 16) + 0xFF000000)
-                          : Theme.of(context).colorScheme.primary,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: (category.color != null 
-                              ? Color(int.parse(category.color!.substring(1, 7), radix: 16) + 0xFF000000)
-                              : Theme.of(context).colorScheme.primary).withValues(alpha: 0.3),
-                          blurRadius: 8,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: const Icon(Icons.category_rounded, color: Colors.white, size: 28),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          category.name,
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          category.description,
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      '$feedCount feeds',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.primary,
-                        fontWeight: FontWeight.w600,
+            final feed = feeds[index];
+            return Card(
+              margin: const EdgeInsets.only(bottom: 12),
+              child: ListTile(
+                leading: feed.iconUrl != null
+                    ? CircleAvatar(backgroundImage: NetworkImage(feed.iconUrl!))
+                    : const CircleAvatar(child: Icon(Icons.rss_feed)),
+                title: Text(feed.title, style: const TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: Text(feed.description, maxLines: 1, overflow: TextOverflow.ellipsis),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => CategoryArticlesScreen(
+                        categoryId: feed.id,
+                        categoryName: feed.title,
                       ),
                     ),
-                  ),
-                ],
+                  );
+                },
               ),
             );
           },
         );
       },
+    );
+  }
+
+  void _showAddFeedDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => const FuturisticAddFeedDialog(),
     );
   }
 }
@@ -614,125 +266,27 @@ class SavedTab extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<ArticleProvider>(
       builder: (context, articleProvider, child) {
-        final savedArticles = articleProvider.savedArticles;
+        final articles = articleProvider.savedArticles;
         
-        if (savedArticles.isEmpty) {
-          return Center(
-            child: FuturisticCard(
-              padding: const EdgeInsets.all(32),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.bookmark_border_rounded,
-                    size: 64,
-                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.6),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'No saved articles',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Save articles to read them later',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-                    ),
-                  ),
-                ],
-              ),
+        if (articles.isEmpty) {
+          return const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.bookmark_outline_rounded, size: 64, color: Colors.grey),
+                SizedBox(height: 16),
+                Text('No saved articles yet'),
+              ],
             ),
           );
         }
 
-        return ListView.builder(
-          padding: const EdgeInsets.only(bottom: 100), // Account for bottom nav
-          itemCount: savedArticles.length,
-          itemBuilder: (context, index) {
-            final article = savedArticles[index];
-            return FuturisticCard(
-              onTap: () => _openArticle(context, article),
-              showGlow: true,
-              glowColor: Colors.orange,
-              child: Row(
-                children: [
-                  Container(
-                    width: 60,
-                    height: 60,
-                    decoration: BoxDecoration(
-                      color: Colors.orange.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: Colors.orange.withValues(alpha: 0.4),
-                        width: 2,
-                      ),
-                    ),
-                    child: const Icon(
-                      Icons.bookmark_rounded,
-                      color: Colors.orange,
-                      size: 28,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          article.title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          article.description,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.access_time_rounded,
-                              size: 16,
-                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Saved • ${article.timeAgo}',
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.bookmark_rounded, color: Colors.orange),
-                    onPressed: () => articleProvider.toggleSaved(article.id),
-                  ),
-                ],
-              ),
-            );
-          },
+        return ArticleListWidget(
+          articles: articles,
+          showFilter: false,
+          title: 'Saved Articles',
         );
       },
-    );
-  }
-  
-  void _openArticle(BuildContext context, article) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => ArticleReadingScreen(article: article),
-      ),
     );
   }
 }
@@ -742,924 +296,222 @@ class SettingsTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<SettingsProvider>(
-      builder: (context, settings, child) {
-        return SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 20),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Text(
-                  'Appearance',
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
-              ),
-              const SizedBox(height: 16),
-              // Theme setting
-              FuturisticCard(
-                onTap: () => _showThemeDialog(context, settings),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.4),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(
-                        Icons.palette_rounded,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Theme',
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            _getThemeText(settings.themeMode),
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Icon(
-                      Icons.chevron_right_rounded,
-                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
-                    ),
-                  ],
-                ),
-              ),
-              // Font size setting
-              FuturisticCard(
-                onTap: () => _showFontSizeDialog(context, settings),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.secondary.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(
-                        Icons.text_fields_rounded,
-                        color: Theme.of(context).colorScheme.secondary,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Font Size',
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '${settings.fontSize.toInt()}px',
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Icon(
-                      Icons.chevron_right_rounded,
-                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 32),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Text(
-                  'Features',
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
-              ),
-              const SizedBox(height: 16),
-              // Auto refresh toggle
-              FuturisticCard(
-                child: Row(
-                  children: [
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.tertiary.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(
-                        Icons.refresh_rounded,
-                        color: Theme.of(context).colorScheme.tertiary,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Auto Refresh',
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Automatically refresh feeds',
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Switch(
-                      value: settings.autoRefresh,
-                      onChanged: (value) => settings.setAutoRefresh(value),
-                    ),
-                  ],
-                ),
-              ),
-              // Image loading toggle
-              FuturisticCard(
-                child: Row(
-                  children: [
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: Colors.purple.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(
-                        Icons.image_rounded,
-                        color: Colors.purple,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Load Images',
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Show images in articles',
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Switch(
-                      value: settings.imageLoadingEnabled,
-                      onChanged: (value) => settings.setImageLoadingEnabled(value),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 32),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Text(
-                  'AI Models',
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
-              ),
-              const SizedBox(height: 16),
+    final settings = context.watch<SettingsProvider>();
 
-              // Preferred provider selection
-              FuturisticCard(
-                onTap: () => _showPreferredProviderDialog(context, settings),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: Colors.blue.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(Icons.star, color: Colors.blue),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Preferred Provider',
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            settings.preferredProvider == SettingsProvider.providerNone
-                              ? 'None selected'
-                              : settings.availableAiProviders
-                                  .firstWhere((e) => e.key == settings.preferredProvider)
-                                  .value,
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Icon(Icons.chevron_right_rounded,
-                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5)),
-                  ],
-                ),
-              ),
-
-              // Provider status overview
-              FuturisticCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Configured Providers',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 12),
-                    ...settings.availableAiProviders
-                        .where((provider) => provider.key != SettingsProvider.providerNone)
-                        .map((provider) {
-                      final isConfigured = settings.isProviderConfigured(provider.key);
-                      final isPreferred = settings.preferredProvider == provider.key;
-
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Row(
-                          children: [
-                            Icon(
-                              isConfigured ? Icons.check_circle : Icons.circle_outlined,
-                              size: 20,
-                              color: isConfigured
-                                ? (isPreferred ? Colors.blue : Colors.green)
-                                : Colors.grey,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                provider.value,
-                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: isConfigured
-                                    ? Theme.of(context).colorScheme.onSurface
-                                    : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
-                                  fontWeight: isPreferred ? FontWeight.bold : FontWeight.normal,
-                                ),
-                              ),
-                            ),
-                            if (isPreferred)
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: Colors.blue.withValues(alpha: 0.2),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Text(
-                                  'PREFERRED',
-                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: Colors.blue,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 10,
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      );
-                    }).toList(),
-                  ],
-                ),
-              ),
-
-              // API Keys section - show all providers
-              ...settings.availableAiProviders
-                  .where((provider) => provider.key != SettingsProvider.providerNone)
-                  .map((provider) {
-                final apiKey = settings.getApiKeyForProvider(provider.key);
-                final isConfigured = apiKey.isNotEmpty;
-
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: FuturisticCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              _getProviderIcon(provider.key),
-                              color: isConfigured ? Colors.green : Colors.grey,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                '${provider.value} API Key',
-                                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  color: isConfigured
-                                    ? Theme.of(context).colorScheme.onSurface
-                                    : Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                                ),
-                              ),
-                            ),
-                            if (isConfigured)
-                              Icon(Icons.check_circle, color: Colors.green, size: 20),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          initialValue: apiKey,
-                          obscureText: true,
-                          decoration: InputDecoration(
-                            hintText: 'Enter ${provider.value} API key',
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            suffixIcon: apiKey.isNotEmpty
-                              ? IconButton(
-                                  icon: const Icon(Icons.clear),
-                                  onPressed: () => _clearApiKey(settings, provider.key),
-                                )
-                              : null,
-                          ),
-                          onChanged: (value) => _updateApiKey(settings, provider.key, value),
-                        ),
-                        if (isConfigured) ...[
-                          const SizedBox(height: 12),
-                          _buildModelSelection(context, settings, provider.key, apiKey),
-                        ],
-                      ],
-                    ),
-                  ),
-                );
-              }).toList(),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  String _getThemeText(ThemeMode mode) {
-    switch (mode) {
-      case ThemeMode.light:
-        return 'Light';
-      case ThemeMode.dark:
-        return 'Dark';
-      case ThemeMode.system:
-        return 'System';
-    }
-  }
-
-  void _showThemeDialog(BuildContext context, SettingsProvider settings) {
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        backgroundColor: Theme.of(context).colorScheme.surface.withAlpha(127),
-        child: GlassContainer(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Select Theme',
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
-              const SizedBox(height: 24),
-              _buildThemeOption(
-                context,
-                'Light',
-                ThemeMode.light,
-                settings.themeMode,
-                Icons.light_mode_rounded,
-                () {
-                  settings.setThemeMode(ThemeMode.light);
-                  Navigator.of(context).pop();
-                },
-              ),
-              const SizedBox(height: 12),
-              _buildThemeOption(
-                context,
-                'Dark',
-                ThemeMode.dark,
-                settings.themeMode,
-                Icons.dark_mode_rounded,
-                () {
-                  settings.setThemeMode(ThemeMode.dark);
-                  Navigator.of(context).pop();
-                },
-              ),
-              const SizedBox(height: 12),
-              _buildThemeOption(
-                context,
-                'System',
-                ThemeMode.system,
-                settings.themeMode,
-                Icons.settings_system_daydream_rounded,
-                () {
-                  settings.setThemeMode(ThemeMode.system);
-                  Navigator.of(context).pop();
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildThemeOption(
-    BuildContext context,
-    String title,
-    ThemeMode value,
-    ThemeMode groupValue,
-    IconData icon,
-    VoidCallback onTap,
-  ) {
-    final isSelected = value == groupValue;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? Theme.of(context).colorScheme.outline.withAlpha(225)
-              : Theme.of(context).colorScheme.outline.withAlpha(180),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isSelected
-                ? Theme.of(context).colorScheme.primary
-                : Colors.transparent,
-            width: 2,
-          ),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              color: isSelected
-                  ? Theme.of(context).colorScheme.primary
-                  : Theme.of(context).colorScheme.onSurface,
-            ),
-            const SizedBox(width: 16),
-            Text(
-              title,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: isSelected
-                    ? Theme.of(context).colorScheme.primary
-                    : Theme.of(context).colorScheme.onSurface,
-              ),
-            ),
-            const Spacer(),
-            if (isSelected)
-              Icon(
-                Icons.check_circle_rounded,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showFontSizeDialog(BuildContext context, SettingsProvider settings) {
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        backgroundColor: Theme.of(context).colorScheme.surface.withAlpha(127),
-        child: GlassContainer(
-          child: Container(
-            constraints: const BoxConstraints(maxWidth: 300),
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Title
-                Text(
-                  'Select Font Size',
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    color: Theme.of(context).colorScheme.primary,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                
-                // Font size options with better spacing
-                ...settings.availableFontSizes.map((entry) {
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(12),
-                      onTap: () {
-                        settings.setFontSize(entry.key);
-                        Navigator.of(context).pop();
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: settings.fontSize == entry.key
-                                ? Theme.of(context).colorScheme.primary
-                                : Theme.of(context).colorScheme.outline.withAlpha(204),
-                          ),
-                          color: settings.fontSize == entry.key
-                              ? Theme.of(context).colorScheme.primary.withAlpha(90)
-                              : Theme.of(context).colorScheme.outline.withAlpha(40),
-                        ),
-                        child: Row(
-                          children: [
-                            // Radio indicator
-                            Container(
-                              width: 20,
-                              height: 20,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: settings.fontSize == entry.key
-                                      ? Theme.of(context).colorScheme.primary
-                                      : Theme.of(context).colorScheme.outline.withAlpha(204),
-                                  width: 2,
-                                ),
-                                color: settings.fontSize == entry.key
-                                    ? Theme.of(context).colorScheme.primary
-                                    : Colors.transparent,
-                              ),
-                              child: settings.fontSize == entry.key
-                                  ? Icon(
-                                      Icons.check,
-                                      size: 14,
-                                      color: Theme.of(context).colorScheme.onPrimary,
-                                    )
-                                  : null,
-                            ),
-                            const SizedBox(width: 16),
-                            
-                            // Font size label
-                            Expanded(
-                              child: Text(
-                                entry.value,
-                                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                  color: settings.fontSize == entry.key
-                                      ? Theme.of(context).colorScheme.primary
-                                      : Theme.of(context).colorScheme.onSurface,
-                                  fontWeight: settings.fontSize == entry.key
-                                      ? FontWeight.w600
-                                      : FontWeight.normal,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  );
-                }).toList(),
-                
-                const SizedBox(height: 16),
-                
-                // Close button
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: Text(
-                      'Close',
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.primary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showPreferredProviderDialog(BuildContext context, SettingsProvider settings) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return Dialog(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: settings.availableAiProviders.map((entry) {
-              return ListTile(
-                leading: Radio<String>(
-                  value: entry.key,
-                  groupValue: settings.preferredProvider,
-                  onChanged: (value) {
-                    if (value != null) {
-                      settings.setPreferredProvider(value);
-                    }
-                    Navigator.of(context).pop();
-                  },
-                ),
-                title: Text(entry.value),
-                onTap: () {
-                  settings.setPreferredProvider(entry.key);
-                  Navigator.of(context).pop();
-                },
-              );
-            }).toList(),
-          ),
-        );
-      },
-    );
-  }
-
-  // Helper methods for API key management
-
-  IconData _getProviderIcon(String providerKey) {
-    switch (providerKey) {
-      case 'openai':
-        return Icons.psychology;
-      case 'anthropic':
-      case 'claude':
-        return Icons.smart_toy;
-      case 'google':
-      case 'gemini':
-        return Icons.cloud;
-      case 'ollama':
-      case 'openrouter':
-        return Icons.computer;
-      case 'perplexity':
-        return Icons.api;
-      case 'nvidia':
-        return Icons.memory;
-      default:
-        return Icons.api;
-    }
-  }
-
-  void _clearApiKey(SettingsProvider settings, String providerKey) {
-    _updateApiKey(settings, providerKey, '');
-  }
-
-  void _updateApiKey(SettingsProvider settings, String providerKey, String value) {
-    switch (providerKey) {
-      case 'openai':
-        settings.setOpenaiApiKey(value);
-        break;
-      case 'anthropic':
-      case 'claude':
-        settings.setClaudeApiKey(value);
-        break;
-      case 'google':
-      case 'gemini':
-        settings.setGeminiApiKey(value);
-        break;
-      case 'ollama':
-      case 'openrouter':
-        settings.setOpenrouterApiKey(value);
-        break;
-      case 'perplexity':
-        settings.setPerplexityApiKey(value);
-        break;
-      case 'nvidia':
-        settings.setNvidiaApiKey(value);
-        break;
-    }
-  }
-
-  Widget _buildModelSelection(BuildContext context, SettingsProvider settings, String provider, String apiKey) {
-    final currentModel = settings.getModelForProvider(provider);
-
-    return Row(
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
       children: [
-        const Text('Model: ', style: TextStyle(fontWeight: FontWeight.w500)),
-        Expanded(
-          child: InkWell(
-            onTap: () => _showModelPickerDialog(context, settings, provider, apiKey),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.5)),
-                borderRadius: BorderRadius.circular(4),
+        _buildSectionHeader(context, 'Appearance'),
+        Card(
+          child: Column(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.brightness_medium_rounded),
+                title: const Text('Theme Mode'),
+                subtitle: Text(settings.themeMode.name.toUpperCase()),
+                onTap: () => _showThemePicker(context, settings),
               ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      currentModel,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: Theme.of(context).colorScheme.primary),
-                    ),
-                  ),
-                  const Icon(Icons.arrow_drop_down, size: 20),
-                ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+        _buildSectionHeader(context, 'AI Summarization'),
+        Card(
+          child: Column(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.api_rounded),
+                title: const Text('Provider'),
+                subtitle: Text(settings.summarizationProvider.toUpperCase()),
+                onTap: () => _showProviderPicker(context, settings),
               ),
-            ),
+              const Divider(height: 1, indent: 56),
+              ListTile(
+                leading: const Icon(Icons.key_rounded),
+                title: const Text('API Keys'),
+                subtitle: const Text('Manage your API keys'),
+                onTap: () => _showApiKeysDialog(context, settings),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+        _buildSectionHeader(context, 'About'),
+        Card(
+          child: ListTile(
+            leading: const Icon(Icons.info_outline_rounded),
+            title: const Text('FreeAd'),
+            subtitle: const Text('Version 2.0.0'),
+            onTap: () {
+              showAboutDialog(
+                context: context,
+                applicationName: 'FreeAd',
+                applicationVersion: '2.0.0',
+                applicationLegalese: '© 2024 FreeAd Team',
+              );
+            },
           ),
         ),
       ],
     );
   }
 
-  void _showModelPickerDialog(BuildContext context, SettingsProvider settings, String provider, String apiKey) async {
-    final summarizationService = context.read<SummarizationService>();
+  Widget _buildSectionHeader(BuildContext context, String title) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 8, bottom: 8),
+      child: Text(
+        title.toUpperCase(),
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: Theme.of(context).colorScheme.primary,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
 
+  void _showThemePicker(BuildContext context, SettingsProvider settings) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Container(
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Select Theme', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            _buildThemeOption(context, settings, ThemeMode.system, 'System Default'),
+            _buildThemeOption(context, settings, ThemeMode.light, 'Light'),
+            _buildThemeOption(context, settings, ThemeMode.dark, 'Dark'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildThemeOption(BuildContext context, SettingsProvider settings, ThemeMode mode, String label) {
+    return ListTile(
+      title: Text(label),
+      leading: Radio<ThemeMode>(
+        value: mode,
+        groupValue: settings.themeMode,
+        onChanged: (value) {
+          settings.setThemeMode(value!);
+          Navigator.pop(context);
+        },
+      ),
+      onTap: () {
+        settings.setThemeMode(mode);
+        Navigator.pop(context);
+      },
+    );
+  }
+
+  void _showProviderPicker(BuildContext context, SettingsProvider settings) {
+    final providers = ['openai', 'claude', 'gemini', 'openrouter', 'perplexity', 'nvidia'];
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Container(
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Select AI Provider', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            ...providers.map((p) => ListTile(
+              title: Text(p.toUpperCase()),
+              leading: Radio<String>(
+                value: p,
+                groupValue: settings.summarizationProvider,
+                onChanged: (value) {
+                  settings.setSummarizationProvider(value!);
+                  Navigator.pop(context);
+                },
+              ),
+              onTap: () {
+                settings.setSummarizationProvider(p);
+                Navigator.pop(context);
+              },
+            )),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showApiKeysDialog(BuildContext context, SettingsProvider settings) {
     showDialog(
       context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(child: CircularProgressIndicator()),
+      builder: (context) => const ApiKeySettingsDialog(),
     );
-
-    List<String> models = await summarizationService.fetchAvailableModels(provider, apiKey);
-
-    if (context.mounted) Navigator.pop(context);
-
-    if (models.isEmpty) {
-      // Fallback or static list if fetch fails or not implemented for provider
-      if (provider == 'claude') {
-        models = ['claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022', 'claude-3-opus-20240229', 'claude-3-haiku-20240307'];
-      } else if (provider == 'gemini') {
-        models = ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-1.5-flash-8b'];
-      } else if (provider == 'perplexity') {
-        models = ['llama-3.1-sonar-small-128k-online', 'llama-3.1-sonar-large-128k-online', 'llama-3.1-8b-instruct', 'llama-3.1-70b-instruct'];
-      }
-    }
-
-    if (models.isEmpty) {
-       if (context.mounted) {
-         ScaffoldMessenger.of(context).showSnackBar(
-           const SnackBar(content: Text('Failed to fetch models or provider not supported for dynamic list.'))
-         );
-       }
-       return;
-    }
-
-    if (context.mounted) {
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text('Select Model for ${provider.toUpperCase()}'),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: models.length,
-              itemBuilder: (context, index) {
-                final model = models[index];
-                return ListTile(
-                  title: Text(model),
-                  selected: model == settings.getModelForProvider(provider),
-                  onTap: () {
-                    settings.setModelForProvider(provider, model);
-                    Navigator.pop(context);
-                  },
-                );
-              },
-            ),
-          ),
-        ),
-      );
-    }
   }
 }
 
-class AddFeedDialog extends StatefulWidget {
-  const AddFeedDialog({super.key});
+class FuturisticAddFeedDialog extends StatefulWidget {
+  const FuturisticAddFeedDialog({super.key});
 
   @override
-  State<AddFeedDialog> createState() => _AddFeedDialogState();
+  State<FuturisticAddFeedDialog> createState() => _FuturisticAddFeedDialogState();
 }
 
-class _AddFeedDialogState extends State<AddFeedDialog> {
+class _FuturisticAddFeedDialogState extends State<FuturisticAddFeedDialog> {
   final _urlController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
 
-  // Sample RSS feeds for testing
   final List<Map<String, String>> _sampleFeeds = [
-    {
-      'title': 'Simple RSS Test',
-      'url': 'https://rss.cnn.com/rss/edition.rss',
-    },
-    {
-      'title': 'BBC News',
-      'url': 'http://feeds.bbci.co.uk/news/rss.xml',
-    },
-    {
-      'title': 'Reuters',
-      'url': 'https://feeds.reuters.com/reuters/topNews',
-    },
-    {
-      'title': 'NASA',
-      'url': 'https://www.nasa.gov/rss/dyn/breaking_news.rss',
-    },
-    {
-      'title': 'NPR',
-      'url': 'https://feeds.npr.org/1001/rss.xml',
-    },
+    {'title': 'BBC News', 'url': 'http://feeds.bbci.co.uk/news/rss.xml'},
+    {'title': 'CNN', 'url': 'https://rss.cnn.com/rss/edition.rss'},
+    {'title': 'Reuters', 'url': 'https://feeds.reuters.com/reuters/topNews'},
+    {'title': 'NASA', 'url': 'https://www.nasa.gov/rss/dyn/breaking_news.rss'},
+    {'title': 'NPR', 'url': 'https://feeds.npr.org/1001/rss.xml'},
   ];
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Add RSS Feed'),
-      content: SizedBox(
-        width: double.maxFinite,
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: _urlController,
-                decoration: const InputDecoration(
-                  labelText: 'RSS Feed URL',
-                  hintText: 'https://example.com/rss.xml',
-                  prefixIcon: Icon(Icons.rss_feed),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter a URL';
-                  }
-                  if (!Uri.tryParse(value)!.isAbsolute) {
-                    return 'Please enter a valid URL';
-                  }
-                  return null;
-                },
-                onChanged: (value) {
-                  // Auto-validate while typing
-                  if (value.isNotEmpty) {
-                    _formKey.currentState?.validate();
-                  }
-                },
+    return FuturisticDialog(
+      title: 'Add RSS Feed',
+      content: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextFormField(
+              controller: _urlController,
+              decoration: const InputDecoration(
+                labelText: 'RSS Feed URL',
+                prefixIcon: Icon(Icons.rss_feed),
               ),
-              const SizedBox(height: 16),
-              
-              // Sample feeds section
-              const Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'Or try these sample feeds:',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-                ),
-              ),
-              const SizedBox(height: 8),
-              
-              // Sample feeds as buttons instead of ListView
-              Wrap(
-                spacing: 8,
-                runSpacing: 4,
-                children: _sampleFeeds.map((feed) {
-                  return ActionChip(
-                    label: Text(
-                      feed['title']!,
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                    onPressed: () {
-                      _urlController.text = feed['url']!;
-                    },
-                  );
-                }).toList(),
-              ),
-            ],
-          ),
+              validator: (value) {
+                if (value == null || value.isEmpty) return 'Please enter a URL';
+                if (!Uri.tryParse(value)!.isAbsolute) return 'Please enter a valid URL';
+                return null;
+              },
+            ),
+            const SizedBox(height: 24),
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text('Suggested Feeds:', style: TextStyle(fontWeight: FontWeight.w500)),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _sampleFeeds.map((feed) => ActionChip(
+                label: Text(feed['title']!),
+                onPressed: () => _urlController.text = feed['url']!,
+              )).toList(),
+            ),
+          ],
         ),
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () => Navigator.pop(context),
           child: const Text('Cancel'),
         ),
         ElevatedButton(
           onPressed: _isLoading ? null : _addFeed,
-          child: _isLoading
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Add Feed'),
+          child: _isLoading ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Add Feed'),
         ),
       ],
     );
@@ -1667,103 +519,84 @@ class _AddFeedDialogState extends State<AddFeedDialog> {
 
   Future<void> _addFeed() async {
     if (!_formKey.currentState!.validate()) return;
-
     setState(() => _isLoading = true);
-
-    final feedProvider = context.read<FeedProvider>();
-    final success = await feedProvider.addFeed(_urlController.text);
-
-    setState(() => _isLoading = false);
-
-    if (success) {
-      Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('RSS feed added successfully!'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(feedProvider.error ?? 'Failed to add RSS feed'),
-          backgroundColor: Colors.red,
-        ),
-      );
+    final success = await context.read<FeedProvider>().addFeed(_urlController.text);
+    if (mounted) {
+      setState(() => _isLoading = false);
+      if (success) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Feed added successfully!')));
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.read<FeedProvider>().error ?? 'Failed to add feed')));
+      }
     }
   }
 }
 
-class ArticleSearchDelegate extends SearchDelegate {
+class ApiKeySettingsDialog extends StatefulWidget {
+  const ApiKeySettingsDialog({super.key});
+
   @override
-  List<Widget> buildActions(BuildContext context) {
-    return [
-      IconButton(
-        icon: const Icon(Icons.clear),
-        onPressed: () {
-          query = '';
-        },
+  State<ApiKeySettingsDialog> createState() => _ApiKeySettingsDialogState();
+}
+
+class _ApiKeySettingsDialogState extends State<ApiKeySettingsDialog> {
+  late Map<String, TextEditingController> _controllers;
+
+  @override
+  void initState() {
+    super.initState();
+    final settings = context.read<SettingsProvider>();
+    _controllers = {
+      'openai': TextEditingController(text: settings.openaiApiKey),
+      'claude': TextEditingController(text: settings.claudeApiKey),
+      'gemini': TextEditingController(text: settings.geminiApiKey),
+      'openrouter': TextEditingController(text: settings.openrouterApiKey),
+      'perplexity': TextEditingController(text: settings.perplexityApiKey),
+      'nvidia': TextEditingController(text: settings.nvidiaApiKey),
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FuturisticDialog(
+      title: 'API Keys',
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: _controllers.entries.map((e) => Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: TextField(
+              controller: e.value,
+              decoration: InputDecoration(
+                labelText: e.key.toUpperCase(),
+                prefixIcon: const Icon(Icons.vpn_key_rounded),
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.save_rounded),
+                  onPressed: () => _saveKey(e.key, e.value.text),
+                ),
+              ),
+              obscureText: true,
+            ),
+          )).toList(),
+        ),
       ),
-    ];
-  }
-
-  @override
-  Widget buildLeading(BuildContext context) {
-    return IconButton(
-      icon: const Icon(Icons.arrow_back),
-      onPressed: () {
-        close(context, null);
-      },
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
+      ],
     );
   }
 
-  @override
-  Widget buildResults(BuildContext context) {
-    return _buildSearchResults(context);
-  }
-
-  @override
-  Widget buildSuggestions(BuildContext context) {
-    return _buildSearchResults(context);
-  }
-
-  Widget _buildSearchResults(BuildContext context) {
-    if (query.isEmpty) {
-      return const Center(
-        child: Text('Enter search terms'),
-      );
+  void _saveKey(String provider, String value) {
+    final settings = context.read<SettingsProvider>();
+    switch (provider) {
+      case 'openai': settings.setOpenaiApiKey(value); break;
+      case 'claude': settings.setClaudeApiKey(value); break;
+      case 'gemini': settings.setGeminiApiKey(value); break;
+      case 'openrouter': settings.setOpenrouterApiKey(value); break;
+      case 'perplexity': settings.setPerplexityApiKey(value); break;
+      case 'nvidia': settings.setNvidiaApiKey(value); break;
     }
-
-    return FutureBuilder(
-      future: context.read<ArticleProvider>().searchArticles(query),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        if (snapshot.hasError) {
-          return Center(child: Text('Error: ${snapshot.error}'));
-        }
-
-        final articles = snapshot.data ?? [];
-        if (articles.isEmpty) {
-          return const Center(child: Text('No articles found'));
-        }
-
-        return ListView.builder(
-          itemCount: articles.length,
-          itemBuilder: (context, index) {
-            final article = articles[index];
-            return ListTile(
-              title: Text(article.title),
-              subtitle: Text(article.description),
-              onTap: () {
-                close(context, article);
-              },
-            );
-          },
-        );
-      },
-    );
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${provider.toUpperCase()} key saved')));
   }
 }

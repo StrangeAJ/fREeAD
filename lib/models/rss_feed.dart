@@ -21,6 +21,8 @@ class RSSFeed {
     this.isActive = true,
   });
 
+  String? get iconUrl => imageUrl;
+
   factory RSSFeed.fromJson(Map<String, dynamic> json) {
     return RSSFeed(
       id: json['id'],
