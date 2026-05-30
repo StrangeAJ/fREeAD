@@ -256,8 +256,9 @@ class FeedProvider with ChangeNotifier {
       final articles = await compute(parseRSSFeedIsolate, {'url': feed.url, 'feedId': feedId});
 
       // Save new articles to database
-      for (final article in articles) {
-        await _databaseService.saveArticle(article.copyWith(feedId: feedId));
+      if (articles.isNotEmpty) {
+        final articlesToSave = articles.map((a) => a.copyWith(feedId: feedId)).toList();
+        await _databaseService.insertArticlesBatch(articlesToSave);
       }
 
       _error = null;
