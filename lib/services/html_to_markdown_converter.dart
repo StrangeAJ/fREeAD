@@ -3,6 +3,7 @@ import 'package:html/parser.dart' as html_parser;
 
 /// HTML to Markdown converter inspired by Turndown.js
 class HtmlToMarkdownConverter {
+
   /// Convert HTML string to Markdown
   String convert(String html) {
     if (html.isEmpty) return '';
@@ -27,10 +28,12 @@ class HtmlToMarkdownConverter {
   /// Clean up HTML before conversion
   void _cleanupHtml(dom.Element element) {
     // Remove unwanted elements
-    final unwantedTags = 'script, style, nav, header, footer, aside';
-    final elements = element.querySelectorAll(unwantedTags);
-    for (final el in elements) {
-      el.remove();
+    final unwantedTags = ['script', 'style', 'nav', 'header', 'footer', 'aside'];
+    for (final tag in unwantedTags) {
+      final elements = element.querySelectorAll(tag);
+      for (final el in elements) {
+        el.remove();
+      }
     }
 
     // Remove empty paragraphs
