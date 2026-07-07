@@ -332,6 +332,13 @@ class SettingsTab extends StatelessWidget {
                 subtitle: const Text('Manage your API keys'),
                 onTap: () => _showApiKeysDialog(context, settings),
               ),
+              const Divider(height: 1, indent: 56),
+              ListTile(
+                leading: const Icon(Icons.tune_rounded),
+                title: const Text('Model Settings'),
+                subtitle: const Text('Models, Ollama server URL'),
+                onTap: () => _showModelSettingsDialog(context, settings),
+              ),
             ],
           ),
         ),
@@ -407,7 +414,6 @@ class SettingsTab extends StatelessWidget {
   }
 
   void _showProviderPicker(BuildContext context, SettingsProvider settings) {
-    final providers = ['openai', 'claude', 'gemini', 'openrouter', 'perplexity', 'nvidia'];
     showModalBottomSheet(
       context: context,
       builder: (context) => Container(
@@ -417,10 +423,10 @@ class SettingsTab extends StatelessWidget {
           children: [
             const Text('Select AI Provider', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
-            ...providers.map((p) => ListTile(
-              title: Text(p.toUpperCase()),
+            ...settings.availableAiProviders.map((entry) => ListTile(
+              title: Text(entry.value),
               leading: Radio<String>(
-                value: p,
+                value: entry.key,
                 groupValue: settings.summarizationProvider,
                 onChanged: (value) {
                   settings.setSummarizationProvider(value!);
@@ -428,7 +434,7 @@ class SettingsTab extends StatelessWidget {
                 },
               ),
               onTap: () {
-                settings.setSummarizationProvider(p);
+                settings.setSummarizationProvider(entry.key);
                 Navigator.pop(context);
               },
             )),
@@ -442,6 +448,13 @@ class SettingsTab extends StatelessWidget {
     showDialog(
       context: context,
       builder: (context) => const ApiKeySettingsDialog(),
+    );
+  }
+
+  void _showModelSettingsDialog(BuildContext context, SettingsProvider settings) {
+    showDialog(
+      context: context,
+      builder: (context) => const ModelSettingsDialog(),
     );
   }
 }
@@ -598,5 +611,111 @@ class _ApiKeySettingsDialogState extends State<ApiKeySettingsDialog> {
       case 'nvidia': settings.setNvidiaApiKey(value); break;
     }
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${provider.toUpperCase()} key saved')));
+  }
+}
+
+class ModelSettingsDialog extends StatefulWidget {
+  const ModelSettingsDialog({super.key});
+
+  @override
+  State<ModelSettingsDialog> createState() => _ModelSettingsDialogState();
+}
+
+class _ModelSettingsDialogState extends State<ModelSettingsDialog> {
+  late final TextEditingController _openaiModelController;
+  late final TextEditingController _nvidiaModelController;
+  late final TextEditingController _ollamaUrlController;
+  late final TextEditingController _ollamaModelController;
+
+  @override
+  void initState() {
+    super.initState();
+    final settings = context.read<SettingsProvider>();
+    _openaiModelController = TextEditingController(text: settings.openaiModel);
+    _nvidiaModelController = TextEditingController(text: settings.nvidiaModel);
+    _ollamaUrlController = TextEditingController(text: settings.ollamaBaseUrl);
+    _ollamaModelController = TextEditingController(text: settings.ollamaModel);
+  }
+
+  @override
+  void dispose() {
+    _openaiModelController.dispose();
+    _nvidiaModelController.dispose();
+    _ollamaUrlController.dispose();
+    _ollamaModelController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FuturisticDialog(
+      title: 'Model Settings',
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: _openaiModelController,
+              decoration: const InputDecoration(
+                labelText: 'OpenAI Model',
+                hintText: 'gpt-4o-mini',
+                prefixIcon: Icon(Icons.smart_toy_outlined),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _nvidiaModelController,
+              decoration: const InputDecoration(
+                labelText: 'NVIDIA NIM Model',
+                hintText: 'meta/llama-3.1-8b-instruct',
+                prefixIcon: Icon(Icons.memory_rounded),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _ollamaUrlController,
+              decoration: const InputDecoration(
+                labelText: 'Ollama Server URL',
+                hintText: 'http://192.168.1.10:11434',
+                helperText: 'On a phone, use your computer\'s LAN IP',
+                prefixIcon: Icon(Icons.dns_rounded),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _ollamaModelController,
+              decoration: const InputDecoration(
+                labelText: 'Ollama Model',
+                hintText: 'llama3.2',
+                prefixIcon: Icon(Icons.psychology_rounded),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: _save,
+          child: const Text('Save'),
+        ),
+      ],
+    );
+  }
+
+  void _save() {
+    final settings = context.read<SettingsProvider>();
+    settings.setOpenaiModel(_openaiModelController.text.trim());
+    settings.setNvidiaModel(_nvidiaModelController.text.trim());
+    settings.setOllamaBaseUrl(_ollamaUrlController.text.trim());
+    settings.setOllamaModel(_ollamaModelController.text.trim());
+    Navigator.pop(context);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Model settings saved')),
+    );
   }
 }

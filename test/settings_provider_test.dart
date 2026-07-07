@@ -27,7 +27,9 @@ void main() {
 
     test('should have default models', () {
       expect(settingsProvider.openaiModel, equals('gpt-4o-mini'));
-      expect(settingsProvider.nvidiaModel, equals('nvidia/llama-3.1-405b-instruct'));
+      expect(settingsProvider.nvidiaModel, equals('meta/llama-3.1-8b-instruct'));
+      expect(settingsProvider.ollamaModel, equals('llama3.2'));
+      expect(settingsProvider.ollamaBaseUrl, equals('http://localhost:11434'));
     });
 
     test('should update and save model', () async {

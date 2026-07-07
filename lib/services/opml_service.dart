@@ -97,6 +97,7 @@ class OpmlService {
         }
         
         // Create category folders
+        final knownCategoryIds = categories.map((c) => c.id).toSet();
         for (final category in categories) {
           final categoryFeeds = feedsByCategory[category.id] ?? [];
           if (categoryFeeds.isNotEmpty) {
@@ -120,9 +121,27 @@ class OpmlService {
             });
           }
         }
+
+        // Feeds whose category isn't in the provided list are exported flat
+        // so nothing gets silently dropped.
+        for (final entry in feedsByCategory.entries) {
+          if (knownCategoryIds.contains(entry.key)) continue;
+          for (final feed in entry.value) {
+            builder.element('outline', nest: () {
+              builder.attribute('type', 'rss');
+              builder.attribute('text', feed.title);
+              builder.attribute('title', feed.title);
+              builder.attribute('xmlUrl', feed.url);
+              builder.attribute('htmlUrl', feed.url);
+              if (feed.description.isNotEmpty) {
+                builder.attribute('description', feed.description);
+              }
+            });
+          }
+        }
       });
     });
-    
+
     return builder.buildDocument().toXmlString(pretty: true);
   }
 }

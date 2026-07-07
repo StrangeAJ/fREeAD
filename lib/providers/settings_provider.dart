@@ -12,6 +12,7 @@ class SettingsProvider with ChangeNotifier {
   static const String providerOpenRouter = 'openrouter';
   static const String providerPerplexity = 'perplexity';
   static const String providerNvidia = 'nvidia';
+  static const String providerOllama = 'ollama';
   static const String providerNone = 'none';
 
   static const String openaiKey = 'openai_api_key';
@@ -23,6 +24,8 @@ class SettingsProvider with ChangeNotifier {
 
   static const String openaiModelKey = 'openai_model';
   static const String nvidiaModelKey = 'nvidia_model';
+  static const String ollamaBaseUrlKey = 'ollama_base_url';
+  static const String ollamaModelKey = 'ollama_model';
 
   static const String aiProviderKey = 'ai_provider';
   static const String preferredProviderKey = 'preferred_provider';
@@ -63,11 +66,14 @@ class SettingsProvider with ChangeNotifier {
   String _nvidiaApiKey = '';
 
   String _openaiModel = 'gpt-4o-mini';
-  String _nvidiaModel = 'nvidia/llama-3.1-405b-instruct';
+  String _nvidiaModel = 'meta/llama-3.1-8b-instruct';
+  String _ollamaBaseUrl = 'http://localhost:11434';
+  String _ollamaModel = 'llama3.2';
 
   ThemeMode get themeMode => _themeMode;
   double get fontSize => _fontSize;
   String get summarizationProvider => _summarizationProvider;
+  bool get autoSaveSummaries => _autoSaveSummaries;
 
   String get openaiApiKey => _openaiApiKey;
   String get claudeApiKey => _claudeApiKey;
@@ -78,6 +84,8 @@ class SettingsProvider with ChangeNotifier {
 
   String get openaiModel => _openaiModel;
   String get nvidiaModel => _nvidiaModel;
+  String get ollamaBaseUrl => _ollamaBaseUrl;
+  String get ollamaModel => _ollamaModel;
 
   Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
@@ -110,7 +118,9 @@ class SettingsProvider with ChangeNotifier {
     _nvidiaApiKey = await _loadOrMigrateSecureKey(nvidiaKey);
 
     _openaiModel = _prefs?.getString(openaiModelKey) ?? 'gpt-4o-mini';
-    _nvidiaModel = _prefs?.getString(nvidiaModelKey) ?? 'nvidia/llama-3.1-405b-instruct';
+    _nvidiaModel = _prefs?.getString(nvidiaModelKey) ?? 'meta/llama-3.1-8b-instruct';
+    _ollamaBaseUrl = _prefs?.getString(ollamaBaseUrlKey) ?? 'http://localhost:11434';
+    _ollamaModel = _prefs?.getString(ollamaModelKey) ?? 'llama3.2';
 
     notifyListeners();
   }
@@ -159,15 +169,38 @@ class SettingsProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> setNvidiaModel(String model) async {
+    _nvidiaModel = model;
+    await _prefs?.setString(nvidiaModelKey, model);
+    notifyListeners();
+  }
+
+  Future<void> setOllamaBaseUrl(String url) async {
+    _ollamaBaseUrl = url;
+    await _prefs?.setString(ollamaBaseUrlKey, url);
+    notifyListeners();
+  }
+
+  Future<void> setOllamaModel(String model) async {
+    _ollamaModel = model;
+    await _prefs?.setString(ollamaModelKey, model);
+    notifyListeners();
+  }
+
   String getModelForProvider(String provider) {
     if (provider == providerOpenAI) return _openaiModel;
     if (provider == providerNvidia) return _nvidiaModel;
+    if (provider == providerOllama) return _ollamaModel;
     return 'default';
   }
 
   List<MapEntry<String, String>> get availableAiProviders => [
     const MapEntry(providerOpenAI, 'OpenAI'),
+    const MapEntry(providerClaude, 'Claude'),
     const MapEntry(providerGemini, 'Gemini'),
-    const MapEntry(providerNvidia, 'Nvidia NIM'),
+    const MapEntry(providerOpenRouter, 'OpenRouter'),
+    const MapEntry(providerPerplexity, 'Perplexity'),
+    const MapEntry(providerNvidia, 'NVIDIA NIM'),
+    const MapEntry(providerOllama, 'Ollama (Local)'),
   ];
 }

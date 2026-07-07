@@ -404,9 +404,40 @@ class DatabaseService {
 
   Future<int> deleteFeed(String id) async {
     final db = await database;
-    // Delete associated articles first
-    await db.delete('articles', where: 'feedId = ?', whereArgs: [id]);
-    return await db.delete('feeds', where: 'id = ?', whereArgs: [id]);
+    return await db.transaction((txn) async {
+      // Get all article IDs for this feed so we can clean up annotations
+      final articleRows = await txn.query(
+        'articles',
+        columns: ['id'],
+        where: 'feedId = ?',
+        whereArgs: [id],
+      );
+      final articleIds = articleRows.map((r) => r['id'] as String).toList();
+
+      // Delete highlights and notes for each article
+      if (articleIds.isNotEmpty) {
+        final placeholders = List.filled(articleIds.length, '?').join(', ');
+        await txn.delete(
+          'article_notes',
+          where: 'articleId IN ($placeholders)',
+          whereArgs: articleIds,
+        );
+        await txn.delete(
+          'article_highlights',
+          where: 'articleId IN ($placeholders)',
+          whereArgs: articleIds,
+        );
+      }
+
+      // Delete feed summaries
+      await txn.delete('feed_summaries', where: 'feedId = ?', whereArgs: [id]);
+
+      // Delete articles
+      await txn.delete('articles', where: 'feedId = ?', whereArgs: [id]);
+
+      // Delete the feed itself
+      return await txn.delete('feeds', where: 'id = ?', whereArgs: [id]);
+    });
   }
 
   // Article operations

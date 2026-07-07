@@ -1,7 +1,12 @@
+import 'dart:convert';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../models/category.dart';
 import '../providers/feed_provider.dart';
 import '../providers/article_provider.dart';
+import '../services/opml_service.dart';
 import '../widgets/futuristic_widgets.dart';
 
 class FeedManagementScreen extends StatefulWidget {
@@ -29,6 +34,18 @@ class _FeedManagementScreenState extends State<FeedManagementScreen> {
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
           onPressed: () => Navigator.pop(context),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.file_download_outlined),
+            tooltip: 'Import OPML',
+            onPressed: _importOpml,
+          ),
+          IconButton(
+            icon: const Icon(Icons.file_upload_outlined),
+            tooltip: 'Export OPML',
+            onPressed: _exportOpml,
+          ),
+        ],
       ),
       body: Consumer<FeedProvider>(
         builder: (context, feedProvider, child) {
@@ -70,20 +87,95 @@ class _FeedManagementScreenState extends State<FeedManagementScreen> {
   void _confirmDelete(BuildContext context, String id, String title) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Delete Feed'),
-        content: Text('Are you sure you want to delete "$title"?'),
+        content: Text('Are you sure you want to delete "$title"? This will also remove all its articles, summaries, highlights, and notes.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
           TextButton(
-            onPressed: () {
-              // Implementation of feed deletion would go here in FeedProvider
-              Navigator.pop(context);
+            onPressed: () async {
+              Navigator.pop(dialogContext);
+              final feedProvider = context.read<FeedProvider>();
+              final success = await feedProvider.deleteFeed(id);
+              if (mounted) {
+                _showMessage(success
+                    ? '"$title" deleted successfully.'
+                    : 'Failed to delete "$title".');
+              }
             },
             child: const Text('Delete', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _importOpml() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.any,
+        withData: true,
+      );
+      if (result == null || result.files.isEmpty) return;
+
+      final file = result.files.first;
+      final name = file.name.toLowerCase();
+      if (!name.endsWith('.opml') && !name.endsWith('.xml')) {
+        _showMessage('Please select an .opml or .xml file.');
+        return;
+      }
+      if (file.bytes == null) {
+        _showMessage('Could not read the selected file.');
+        return;
+      }
+
+      final content = utf8.decode(file.bytes!, allowMalformed: true);
+      final feeds = OpmlService.parseOpml(content);
+      if (feeds.isEmpty) {
+        _showMessage('No feeds found in the OPML file.');
+        return;
+      }
+
+      if (!mounted) return;
+      final counts = await context.read<FeedProvider>().importFeeds(feeds);
+      _showMessage(
+        'Imported ${counts['imported']} feed(s)'
+        '${(counts['skipped'] ?? 0) > 0 ? ', skipped ${counts['skipped']} duplicate(s)' : ''}.',
+      );
+    } catch (e) {
+      _showMessage('OPML import failed: $e');
+    }
+  }
+
+  Future<void> _exportOpml() async {
+    try {
+      final feedProvider = context.read<FeedProvider>();
+      if (feedProvider.feeds.isEmpty) {
+        _showMessage('No feeds to export.');
+        return;
+      }
+
+      final opml = OpmlService.generateOpml(
+        feedProvider.feeds,
+        Category.defaultCategories,
+      );
+
+      final path = await FilePicker.platform.saveFile(
+        dialogTitle: 'Save OPML file',
+        fileName: 'freead-feeds.opml',
+        type: FileType.any,
+        bytes: utf8.encode(opml),
+      );
+      if (path != null) {
+        _showMessage('Exported ${feedProvider.feeds.length} feed(s).');
+      }
+    } catch (e) {
+      _showMessage('OPML export failed: $e');
+    }
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 }

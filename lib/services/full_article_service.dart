@@ -5,6 +5,42 @@ import 'package:html/dom.dart' as dom;
 class FullArticleService {
   final Dio _dio = Dio();
 
+  /// Boilerplate class/id fragments matched on word boundaries — a raw
+  /// `[class*="ad"]` substring selector would also remove elements like
+  /// "read-more" or "download".
+  static final RegExp _negativePattern = RegExp(
+    r'(^|[\s_-])(ad|ads|advert|advertisement|banner|breadcrumb|comment|comments|'
+    r'disqus|footer|gdpr|header|menu|nav|navbar|navigation|outbrain|pager|'
+    r'pagination|popup|promo|related|share|sharing|sidebar|skyscraper|social|'
+    r'sponsor|sponsored|subscribe|newsletter|taboola|toolbar|widget|masthead|'
+    r'cookie|consent|modal|overlay)([\s_-]|$)',
+    caseSensitive: false,
+  );
+
+  static final RegExp _positivePattern = RegExp(
+    r'(^|[\s_-])(article|body|content|entry|main|page|post|text|blog|story)([\s_-]|$)',
+    caseSensitive: false,
+  );
+
+  /// Site-specific CSS selectors for popular content platforms.
+  /// When the URL matches a domain key, these selectors are tried first
+  /// (bypassing scoring entirely for maximum accuracy).
+  static const Map<String, List<String>> _siteSpecificSelectors = {
+    'medium.com': ['article section', '.postArticle-content', '.section-content'],
+    'dev.to': ['.crayons-article__main', '#article-body', '.article-body'],
+    'substack.com': ['.body.markup', '.post-content', '.available-content'],
+    'ghost.io': ['.post-content', '.gh-content', '.article-content'],
+    'blogger.com': ['.post-body.entry-content', '.post-body'],
+    'tumblr.com': ['.post-content', '.body-text'],
+    'hashnode.dev': ['.prose', '#post-content-parent'],
+    'notion.site': ['.notion-page-content', '.layout-content'],
+    'bbc.com': ['[data-component="text-block"]', '.article__body-content', '.story-body__inner'],
+    'nytimes.com': ['.StoryBodyCompanionColumn', '.css-53u6y8', '.meteredContent'],
+    'theguardian.com': ['.article-body-commercial-selector', '.content__article-body'],
+    'reuters.com': ['.article-body__content', '.StandardArticleBody_body'],
+    'techcrunch.com': ['.article-content', '.entry-content'],
+  };
+
   FullArticleService() {
     _dio.options.followRedirects = true;
     _dio.options.maxRedirects = 5;
@@ -51,10 +87,19 @@ class FullArticleService {
   /// Extracts readable content from HTML document using readability-like algorithm
   String? _extractReadableContent(dom.Document document, String baseUrl) {
     try {
+      // Recover images from noscript before stripping
+      _recoverNoscriptImages(document);
+
       // Remove unwanted elements
       _removeUnwantedElements(document);
+
+      // Try site-specific selectors first (bypasses scoring for known sites)
+      final siteSpecificElement = _trySiteSpecificSelectors(document, baseUrl);
+      if (siteSpecificElement != null) {
+        return _processAndCleanHtml(siteSpecificElement, baseUrl);
+      }
       
-      // Try common article selectors first
+      // Try common article selectors
       final articleElement = _tryCommonSelectorsElement(document);
       if (articleElement != null) {
         return _processAndCleanHtml(articleElement, baseUrl);
@@ -73,50 +118,121 @@ class FullArticleService {
     }
   }
 
-  /// Removes unwanted elements from the document
-  void _removeUnwantedElements(dom.Document document) {
-    final unwantedSelectors = [
-      'script', 'style', 'nav', 'header', 'footer', 'aside',
-      '.advertisement', '.ads', '.ad', '.sidebar', '.menu',
-      '.comments', '.social', '.share', '.related', '.tags',
-      '.navigation', '.breadcrumb', '.pagination', '.toolbar',
-      '[class*="ad"]', '[id*="ad"]', '[class*="sidebar"]',
-      '[class*="menu"]', '[class*="nav"]', '[class*="header"]',
-      '[class*="footer"]', '[class*="comment"]', '[class*="social"]',
-      '.widget', '.popup', '.modal', '.overlay', '.banner',
-    ];
-
-    for (final selector in unwantedSelectors) {
+  /// Recovers real <img> tags from inside <noscript> before stripping.
+  void _recoverNoscriptImages(dom.Document document) {
+    for (final noscript in document.querySelectorAll('noscript').toList()) {
       try {
-        final elements = document.querySelectorAll(selector);
-        for (final element in elements) {
-          element.remove();
+        final fragment = html_parser.parseFragment(noscript.innerHtml);
+        final images = fragment.querySelectorAll('img');
+        for (final img in images) {
+          final src = img.attributes['src'] ?? '';
+          if (src.isNotEmpty && src.startsWith('http')) {
+            final newImg = document.createElement('img');
+            for (final attr in img.attributes.entries) {
+              newImg.attributes[attr.key] = attr.value;
+            }
+            noscript.parent?.insertBefore(newImg, noscript);
+          }
         }
-      } catch (e) {
-        // Continue if selector fails
+      } catch (_) {
+        // Failed to parse noscript content — skip.
       }
     }
+  }
+
+  /// Removes unwanted elements from the document
+  void _removeUnwantedElements(dom.Document document) {
+    for (final tag in ['script', 'style', 'noscript', 'nav', 'aside', 'form']) {
+      for (final element in document.querySelectorAll(tag)) {
+        element.remove();
+      }
+    }
+    // Only top-level header/footer — articles can legitimately contain them.
+    for (final element in document.querySelectorAll('body > header, body > footer')) {
+      element.remove();
+    }
+    final body = document.body;
+    if (body != null) _removeBoilerplateByClass(body);
+  }
+
+  /// Removes elements whose class/id marks them as boilerplate, unless they
+  /// also look like article content.
+  void _removeBoilerplateByClass(dom.Element root) {
+    for (final element in root.querySelectorAll('*').toList()) {
+      if (element.parent == null) continue;
+      final matchString = '${element.className} ${element.id}';
+      if (matchString.trim().isEmpty) continue;
+      if (_negativePattern.hasMatch(matchString) &&
+          !_positivePattern.hasMatch(matchString)) {
+        element.remove();
+      }
+    }
+  }
+
+  /// Tries site-specific selectors when the URL matches a known domain.
+  dom.Element? _trySiteSpecificSelectors(dom.Document document, String url) {
+    try {
+      final uri = Uri.parse(url);
+      final host = uri.host.toLowerCase();
+
+      for (final entry in _siteSpecificSelectors.entries) {
+        if (host.contains(entry.key)) {
+          for (final selector in entry.value) {
+            try {
+              final element = document.querySelector(selector);
+              if (element != null) {
+                final text = element.text.trim();
+                if (text.length > 200) {
+                  return element;
+                }
+              }
+            } catch (_) {
+              // Selector may not be supported — continue.
+            }
+          }
+        }
+      }
+    } catch (_) {
+      // URL parse failure — skip.
+    }
+    return null;
   }
 
   /// Tries common article content selectors and returns the element
   dom.Element? _tryCommonSelectorsElement(dom.Document document) {
     final commonSelectors = [
+      // Standard semantic selectors
       'article',
-      '.article-content',
-      '.post-content',
+      '[role="main"]',
+      'main',
+      // WordPress patterns
       '.entry-content',
-      '.content',
-      '.main-content',
+      '.post-content',
+      '.article-content',
+      '#content .entry-content',
+      // Ghost CMS patterns
+      '.post-content',
+      '.gh-content',
+      // Generic content patterns
       '.article-body',
       '.post-body',
       '.story-body',
       '.text',
       '.article-text',
-      '[role="main"]',
-      'main',
+      '.content',
+      '.main-content',
       '#content',
       '#main',
+      '#article',
       '.container .content',
+      // Substack patterns
+      '.body.markup',
+      '.available-content',
+      // Misc CMS patterns
+      '.field-item',
+      '.node-content',
+      '.td-post-content',
+      '#main-content',
     ];
 
     for (final selector in commonSelectors) {
@@ -188,52 +304,38 @@ class FullArticleService {
 
   /// Removes unwanted child elements from the main content
   void _removeUnwantedChildElements(dom.Element element) {
-    final unwantedSelectors = [
-      'script', 'style', 'nav', 'header', 'footer', 'aside',
-      '.advertisement', '.ads', '.ad', '.sidebar', '.menu',
-      '.comments', '.social', '.share', '.related', '.tags',
-      '.navigation', '.breadcrumb', '.pagination', '.toolbar',
-      '[class*="ad"]', '[id*="ad"]', '[class*="sidebar"]',
-      '[class*="menu"]', '[class*="nav"]', '[class*="comment"]',
-      '[class*="social"]', '.widget', '.popup', '.modal', 
-      '.overlay', '.banner', '.promo', '.sponsored',
-    ];
-
-    for (final selector in unwantedSelectors) {
-      try {
-        final elements = element.querySelectorAll(selector);
-        for (final el in elements) {
-          el.remove();
-        }
-      } catch (e) {
-        // Continue if selector fails
+    for (final tag in ['script', 'style', 'noscript', 'nav', 'aside', 'form']) {
+      for (final el in element.querySelectorAll(tag)) {
+        el.remove();
       }
     }
+    _removeBoilerplateByClass(element);
   }
 
-  /// Fixes relative URLs to absolute URLs
+  /// Fixes relative URLs to absolute URLs, resolving against the full
+  /// article URL (with path), not just the host root.
   void _fixRelativeUrls(dom.Element element, String baseUrl) {
     try {
-      final uri = Uri.parse(baseUrl);
-      final baseUri = Uri(scheme: uri.scheme, host: uri.host, port: uri.port);
-      
+      final baseUri = Uri.parse(baseUrl);
+
       // Fix image src attributes
       final images = element.querySelectorAll('img[src]');
       for (final img in images) {
         final src = img.attributes['src'];
-        if (src != null && !src.startsWith('http')) {
-          final absoluteUrl = baseUri.resolve(src).toString();
-          img.attributes['src'] = absoluteUrl;
+        if (src != null && !src.startsWith('http') && !src.startsWith('data:')) {
+          img.attributes['src'] = baseUri.resolve(src).toString();
         }
       }
-      
+
       // Fix link href attributes
       final links = element.querySelectorAll('a[href]');
       for (final link in links) {
         final href = link.attributes['href'];
-        if (href != null && !href.startsWith('http') && !href.startsWith('mailto:')) {
-          final absoluteUrl = baseUri.resolve(href).toString();
-          link.attributes['href'] = absoluteUrl;
+        if (href != null &&
+            !href.startsWith('http') &&
+            !href.startsWith('mailto:') &&
+            !href.startsWith('#')) {
+          link.attributes['href'] = baseUri.resolve(href).toString();
         }
       }
     } catch (e) {
@@ -267,9 +369,11 @@ class FullArticleService {
         el.attributes.remove(attr);
       }
       
-      // Remove empty paragraphs and divs
+      // Remove empty paragraphs and divs (but preserve figure/img containers)
       if ((el.localName == 'p' || el.localName == 'div') && 
-          el.text.trim().isEmpty && el.children.isEmpty) {
+          el.text.trim().isEmpty && 
+          el.children.isEmpty &&
+          el.querySelector('img, video, audio, picture, figure') == null) {
         el.remove();
       }
     }
@@ -293,28 +397,50 @@ class FullArticleService {
         score += 5;
       }
     }
+
+    // Comma-based scoring (mimicking Readability.js) — commas indicate
+    // natural language prose rather than navigation or UI text.
+    final commaCount = ','.allMatches(text).length;
+    score += commaCount * 1.5;
     
     // Bonus for article-like class names
     final className = element.className.toLowerCase();
-    if (className.contains('article') || className.contains('content') || 
-        className.contains('post') || className.contains('story')) {
-      score += 10;
+    final idName = element.id.toLowerCase();
+    final matchString = '$className $idName';
+
+    if (_positivePattern.hasMatch(matchString)) {
+      score += 15;
     }
     
     // Penalty for advertisement-like class names
-    if (className.contains('ad') || className.contains('sidebar') || 
-        className.contains('menu') || className.contains('nav')) {
-      score -= 20;
+    if (_negativePattern.hasMatch(matchString)) {
+      score -= 25;
     }
+
+    // Blockquote bonus — quotes suggest real editorial content.
+    final blockquotes = element.querySelectorAll('blockquote');
+    score += blockquotes.length * 3;
+
+    // Figure bonus — figures with captions indicate curated content.
+    final figures = element.querySelectorAll('figure');
+    score += figures.length * 2;
     
     // Penalty for too many links relative to text
     final links = element.querySelectorAll('a');
-    if (links.length > 0) {
+    if (links.isNotEmpty) {
       final linkTextLength = links.fold(0, (sum, link) => sum + link.text.length);
-      final linkRatio = linkTextLength / text.length;
-      if (linkRatio > 0.3) {
-        score -= 10;
+      if (text.isNotEmpty) {
+        final linkRatio = linkTextLength / text.length;
+        if (linkRatio > 0.3) {
+          score -= 10;
+        }
       }
+    }
+
+    // Penalty for excessive child divs (wrapper-heavy structures).
+    final childDivs = element.children.where((c) => c.localName == 'div').length;
+    if (childDivs > 5 && paragraphs.isEmpty) {
+      score -= 8; // Many divs, no paragraphs — probably not article content.
     }
     
     return score;

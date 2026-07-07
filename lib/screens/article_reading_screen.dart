@@ -35,10 +35,12 @@ class _ArticleReadingScreenState extends State<ArticleReadingScreen> {
   bool _isLoadingSummary = false;
   late ArticleAnnotationProvider _annotationProvider;
   double _readingProgress = 0.0;
+  late Article _article;
 
   @override
   void initState() {
     super.initState();
+    _article = widget.article;
     _scrollController.addListener(_onScroll);
     _annotationProvider = ArticleAnnotationProvider();
 
@@ -226,7 +228,7 @@ class _ArticleReadingScreenState extends State<ArticleReadingScreen> {
   }
 
   Widget _buildMainContent(BuildContext context, SettingsProvider settings, ArticleAnnotationProvider annotationProvider) {
-    final displayContent = _showFullContent ? (widget.article.fullContent ?? widget.article.content) : widget.article.content;
+    final displayContent = _showFullContent ? (_article.fullContent ?? _article.content) : _article.content;
 
     return HighlightableText(
       text: _cleanContent(displayContent ?? ''),
@@ -257,6 +259,11 @@ class _ArticleReadingScreenState extends State<ArticleReadingScreen> {
                   color: widget.article.isSaved ? theme.colorScheme.primary : null,
                 ),
                 onPressed: () => context.read<ArticleProvider>().toggleSaved(widget.article.id),
+              ),
+              IconButton(
+                icon: const Icon(Icons.edit_note_rounded),
+                tooltip: 'Edit text',
+                onPressed: _editArticleText,
               ),
               IconButton(
                 icon: const Icon(Icons.text_fields_rounded),
@@ -344,7 +351,7 @@ class _ArticleReadingScreenState extends State<ArticleReadingScreen> {
   Future<void> _generateSummary() async {
     setState(() => _isLoadingSummary = true);
     try {
-      final summary = await SummarizationService().summarizeArticle(widget.article);
+      final summary = await SummarizationService().summarizeArticle(_article);
       setState(() {
         _summary = summary;
         _isLoadingSummary = false;
@@ -353,6 +360,47 @@ class _ArticleReadingScreenState extends State<ArticleReadingScreen> {
     } catch (e) {
       setState(() => _isLoadingSummary = false);
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
+    }
+  }
+
+  Future<void> _editArticleText() async {
+    final editingFullContent = _showFullContent && _article.fullContent != null;
+    final currentText = _cleanContent(
+      (editingFullContent ? _article.fullContent : _article.content) ?? '',
+    );
+
+    final newText = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ArticleTextEditorScreen(
+          title: _article.title,
+          initialText: currentText,
+        ),
+      ),
+    );
+    if (newText == null || newText == currentText) return;
+    if (!mounted) return;
+
+    final success = await context.read<ArticleProvider>().updateArticleContent(
+          _article.id,
+          newText,
+          editFullContent: editingFullContent,
+        );
+
+    if (!mounted) return;
+    if (success) {
+      setState(() {
+        _article = editingFullContent
+            ? _article.copyWith(fullContent: newText)
+            : _article.copyWith(content: newText);
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Article text saved')),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to save changes')),
+      );
     }
   }
 
@@ -365,5 +413,111 @@ class _ArticleReadingScreenState extends State<ArticleReadingScreen> {
     if (await canLaunchUrl(url)) {
       await launchUrl(url, mode: LaunchMode.inAppBrowserView);
     }
+  }
+}
+
+/// Full-screen plain-text editor for article content. Pops with the edited
+/// text on save, or null on cancel.
+class ArticleTextEditorScreen extends StatefulWidget {
+  final String title;
+  final String initialText;
+
+  const ArticleTextEditorScreen({
+    super.key,
+    required this.title,
+    required this.initialText,
+  });
+
+  @override
+  State<ArticleTextEditorScreen> createState() => _ArticleTextEditorScreenState();
+}
+
+class _ArticleTextEditorScreenState extends State<ArticleTextEditorScreen> {
+  late final TextEditingController _controller;
+  bool _hasChanges = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialText);
+    _controller.addListener(() {
+      final changed = _controller.text != widget.initialText;
+      if (changed != _hasChanges) {
+        setState(() => _hasChanges = changed);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<bool> _confirmDiscard() async {
+    if (!_hasChanges) return true;
+    final discard = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Discard changes?'),
+        content: const Text('You have unsaved changes to the article text.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Keep editing'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Discard', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    return discard ?? false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: !_hasChanges,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        if (await _confirmDiscard() && mounted) {
+          Navigator.pop(context);
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(
+            'Edit: ${widget.title}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          actions: [
+            TextButton.icon(
+              onPressed: _hasChanges
+                  ? () => Navigator.pop(context, _controller.text)
+                  : null,
+              icon: const Icon(Icons.save_rounded),
+              label: const Text('Save'),
+            ),
+          ],
+        ),
+        body: Padding(
+          padding: const EdgeInsets.all(16),
+          child: TextField(
+            controller: _controller,
+            maxLines: null,
+            expands: true,
+            keyboardType: TextInputType.multiline,
+            textAlignVertical: TextAlignVertical.top,
+            decoration: const InputDecoration(
+              border: OutlineInputBorder(),
+              hintText: 'Article text...',
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

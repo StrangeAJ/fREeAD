@@ -167,6 +167,37 @@ class ArticleProvider with ChangeNotifier {
     }
   }
 
+  /// Persists user-edited article text. Saves to [Article.fullContent] when
+  /// [editFullContent] is true, otherwise to [Article.content].
+  Future<bool> updateArticleContent(
+    String articleId,
+    String newContent, {
+    bool editFullContent = false,
+  }) async {
+    try {
+      var article = getArticleById(articleId) ??
+          await _databaseService.getArticleById(articleId);
+      if (article == null) return false;
+
+      final updated = editFullContent
+          ? article.copyWith(fullContent: newContent)
+          : article.copyWith(content: newContent);
+      await _databaseService.updateArticle(updated);
+
+      final index = _articles.indexWhere((a) => a.id == articleId);
+      if (index != -1) _articles[index] = updated;
+      final savedIndex = _savedArticles.indexWhere((a) => a.id == articleId);
+      if (savedIndex != -1) _savedArticles[savedIndex] = updated;
+      final starredIndex = _starredArticles.indexWhere((a) => a.id == articleId);
+      if (starredIndex != -1) _starredArticles[starredIndex] = updated;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      print('Error updating article content: $e');
+      return false;
+    }
+  }
+
   Future<void> refreshArticle(String id) async {
     final updated = await _databaseService.getArticleById(id);
     if (updated != null) {
