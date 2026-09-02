@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"
+     xmlns:content="http://purl.org/rss/1.0/modules/content/"
+     xmlns:dc="http://purl.org/dc/elements/1.1/"
+     xmlns:media="http://search.yahoo.com/mrss/"
+     xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Quiet Instrument Daily</title>
+    <link>https://example.com/</link>
+    <description>Long form reporting about &amp; around technology.</description>
+    <language>en-GB</language>
+    <image>
+      <url>https://example.com/assets/logo.png</url>
+      <title>Quiet Instrument Daily</title>
+      <link>https://example.com/</link>
+    </image>
+    <atom:link href="https://example.com/feed.xml" rel="self" type="application/rss+xml"/>
+
+    <item>
+      <title>The quiet instrument</title>
+      <link>https://example.com/2026/07/quiet-instrument</link>
+      <guid isPermaLink="false">tag:example.com,2026:post-1</guid>
+      <pubDate>Tue, 01 Jul 2026 08:30:00 +0530</pubDate>
+      <dc:creator>Jane Reporter</dc:creator>
+      <description>&lt;p&gt;A short teaser about the &lt;b&gt;quiet instrument&lt;/b&gt; and why it matters.&lt;/p&gt;</description>
+      <content:encoded><![CDATA[
+        <div class="entry">
+          <h2>Why quiet matters</h2>
+          <p>The first paragraph of the article body, with a <a href="/related/story">relative link</a>.</p>
+          <p>The second paragraph, complete with an inline image.</p>
+          <img src="/images/hero.jpg" alt="Hero" width="1200" height="600">
+          <script>window.tracker = 1;</script>
+          <p class="promo-widget">Subscribe to our newsletter.</p>
+        </div>
+      ]]></content:encoded>
+      <media:content url="https://cdn.example.com/small.jpg" medium="image" width="320"/>
+      <media:content url="https://cdn.example.com/large.jpg" medium="image" width="1600"/>
+    </item>
+
+    <item>
+      <title>A second story, no seconds in the date</title>
+      <link>/2026/06/second-story</link>
+      <pubDate>Mon, 30 Jun 2026 22:15 GMT</pubDate>
+      <author>newsroom@example.com (Sam Editor)</author>
+      <description>Plain text description without any markup at all.</description>
+      <enclosure url="https://cdn.example.com/enclosure.jpg" type="image/jpeg" length="12345"/>
+    </item>
+
+    <item>
+      <title>Legacy story with a two digit year</title>
+      <guid isPermaLink="true">https://example.com/1999/legacy</guid>
+      <pubDate>15 Nov 99 12:45:26 EST</pubDate>
+      <description>An old post kept for the archive.</description>
+    </item>
+
+    <item>
+      <title>Item without a link is skipped</title>
+      <description>No link, no article.</description>
+    </item>
+  </channel>
+</rss>

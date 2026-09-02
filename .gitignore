@@ -46,6 +46,15 @@ app.*.map.json
 .to-do
 oldCode/
 
+# Local tooling output
+flutter_log.txt
+tool/__pycache__/
+/coverage/
+
+# Gradle / Kotlin build output
+android/build/
+android/.kotlin/
+
 # VS Code settings
 .vscode/
 # VS Code workspace storage

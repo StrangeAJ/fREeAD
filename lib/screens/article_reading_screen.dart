@@ -88,6 +88,8 @@ class _ArticleReadingScreenState extends State<ArticleReadingScreen> {
       child: Consumer2<SettingsProvider, ArticleAnnotationProvider>(
         builder: (context, settings, annotationProvider, child) {
           final theme = Theme.of(context);
+          final liveArticle = context.read<ArticleProvider>().getArticleById(widget.article.id);
+          if (liveArticle != null) _article = liveArticle;
 
           return Scaffold(
             extendBodyBehindAppBar: true,
@@ -228,16 +230,23 @@ class _ArticleReadingScreenState extends State<ArticleReadingScreen> {
   }
 
   Widget _buildMainContent(BuildContext context, SettingsProvider settings, ArticleAnnotationProvider annotationProvider) {
-    final displayContent = _showFullContent ? (_article.fullContent ?? _article.content) : _article.content;
+    return Consumer<ArticleProvider>(
+      builder: (context, articleProvider, child) {
+        final article = articleProvider.getArticleById(widget.article.id) ?? _article;
+        final displayContent = _showFullContent
+            ? (article.fullContent ?? article.content)
+            : article.content;
 
-    return HighlightableText(
-      text: _cleanContent(displayContent ?? ''),
-      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-        fontSize: settings.fontSize,
-        height: 1.6,
-      ),
-      highlights: annotationProvider.highlights,
-      isEditMode: annotationProvider.isEditMode,
+        return HighlightableText(
+          text: _cleanContent(displayContent ?? ''),
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+            fontSize: settings.fontSize,
+            height: 1.6,
+          ),
+          highlights: annotationProvider.highlights,
+          isEditMode: annotationProvider.isEditMode,
+        );
+      },
     );
   }
 
@@ -284,11 +293,13 @@ class _ArticleReadingScreenState extends State<ArticleReadingScreen> {
     return Consumer<ArticleProvider>(
       builder: (context, articleProvider, child) {
         final isLoadingFull = articleProvider.isLoadingFullArticle(widget.article.id);
-        
+        final article = articleProvider.getArticleById(widget.article.id) ?? widget.article;
+        final hasFullContent = article.fullContent != null && article.fullContent!.isNotEmpty;
+
         return Center(
           child: OutlinedButton.icon(
             onPressed: isLoadingFull ? null : () async {
-              if (widget.article.fullContent != null) {
+              if (hasFullContent) {
                 setState(() => _showFullContent = !_showFullContent);
               } else {
                 final success = await articleProvider.loadFullArticle(widget.article.id);

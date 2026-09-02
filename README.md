@@ -3,6 +3,18 @@
 
 A modern Flutter RSS reader application with Material 3 design and comprehensive reading features.
 
+> **v3 in progress.** The app is being rebuilt against `docs/V3_OVERHAUL_PLAN.md`:
+> a new design system, a three-tier article extractor, "Ask AI about this
+> article", automatic feed categorisation, and a real feeds/categories model.
+> Parts of this README still describe v2 behaviour and will be rewritten when
+> v3 lands. Building requires Flutter 3.32.8; see the plan for the toolchain
+> notes (`org.gradle.user.home` and `kotlin.incremental=false` in
+> `android/gradle.properties` are needed because the pub cache and the project
+> live on different drives).
+>
+> Out of scope for v3 (possible later): background sync with WorkManager, push
+> notifications, text-to-speech, iOS polish, desktop builds.
+
 ## Features
 
 ### Reading Experience

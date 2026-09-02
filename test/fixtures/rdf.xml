@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+         xmlns="http://purl.org/rss/1.0/"
+         xmlns:dc="http://purl.org/dc/elements/1.1/"
+         xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel rdf:about="https://rdf.example.net/">
+    <title>RDF Wire</title>
+    <link>https://rdf.example.net/</link>
+    <description>An RSS 1.0 feed.</description>
+    <dc:language>de-DE</dc:language>
+  </channel>
+
+  <item rdf:about="https://rdf.example.net/story-a">
+    <title>Story A</title>
+    <link>https://rdf.example.net/story-a</link>
+    <description>Description of story A.</description>
+    <dc:date>2026-06-29T14:05:00+02:00</dc:date>
+    <dc:creator>Ola Nordmann</dc:creator>
+    <content:encoded>&lt;p&gt;Body of story A.&lt;/p&gt;</content:encoded>
+  </item>
+
+  <item rdf:about="https://rdf.example.net/story-b">
+    <title>Story B</title>
+    <link>https://rdf.example.net/story-b</link>
+    <description>Description of story B.</description>
+    <dc:date>2026-06-28</dc:date>
+  </item>
+</rdf:RDF>

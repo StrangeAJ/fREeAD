@@ -9,6 +9,18 @@ class RSSFeed {
   final DateTime? lastUpdated;
   final bool isActive;
 
+  /// Canonical website for the feed (channel `link` / atom `rel=alternate`).
+  final String? siteUrl;
+
+  /// Last time a refresh actually completed for this feed.
+  final DateTime? lastFetchedAt;
+
+  /// Friendly message for the last refresh failure, null when healthy.
+  final String? lastError;
+
+  /// Feed language tag, e.g. `en-US`.
+  final String? language;
+
   RSSFeed({
     required this.id,
     required this.title,
@@ -19,6 +31,10 @@ class RSSFeed {
     required this.dateAdded,
     this.lastUpdated,
     this.isActive = true,
+    this.siteUrl,
+    this.lastFetchedAt,
+    this.lastError,
+    this.language,
   });
 
   String? get iconUrl => imageUrl;
@@ -32,11 +48,23 @@ class RSSFeed {
       imageUrl: json['imageUrl'],
       categoryId: json['categoryId'],
       dateAdded: DateTime.parse(json['dateAdded']),
-      lastUpdated: json['lastUpdated'] != null 
-          ? DateTime.parse(json['lastUpdated']) 
-          : null,
-      isActive: json['isActive'] is int ? json['isActive'] == 1 : (json['isActive'] ?? true),
+      lastUpdated: _parseDate(json['lastUpdated']),
+      isActive: json['isActive'] is int
+          ? json['isActive'] == 1
+          : (json['isActive'] ?? true),
+      siteUrl: json['siteUrl'],
+      lastFetchedAt: _parseDate(json['lastFetchedAt']),
+      lastError: json['lastError'],
+      language: json['language'],
     );
+  }
+
+  static DateTime? _parseDate(Object? value) {
+    if (value == null) return null;
+    if (value is DateTime) return value;
+    final text = value.toString();
+    if (text.isEmpty) return null;
+    return DateTime.tryParse(text);
   }
 
   Map<String, dynamic> toJson() {
@@ -50,6 +78,10 @@ class RSSFeed {
       'dateAdded': dateAdded.toIso8601String(),
       'lastUpdated': lastUpdated?.toIso8601String(),
       'isActive': isActive ? 1 : 0,
+      'siteUrl': siteUrl,
+      'lastFetchedAt': lastFetchedAt?.toIso8601String(),
+      'lastError': lastError,
+      'language': language,
     };
   }
 
@@ -63,6 +95,11 @@ class RSSFeed {
     DateTime? dateAdded,
     DateTime? lastUpdated,
     bool? isActive,
+    String? siteUrl,
+    DateTime? lastFetchedAt,
+    String? lastError,
+    String? language,
+    bool clearError = false,
   }) {
     return RSSFeed(
       id: id ?? this.id,
@@ -74,6 +111,10 @@ class RSSFeed {
       dateAdded: dateAdded ?? this.dateAdded,
       lastUpdated: lastUpdated ?? this.lastUpdated,
       isActive: isActive ?? this.isActive,
+      siteUrl: siteUrl ?? this.siteUrl,
+      lastFetchedAt: lastFetchedAt ?? this.lastFetchedAt,
+      lastError: clearError ? null : (lastError ?? this.lastError),
+      language: language ?? this.language,
     );
   }
 
@@ -85,6 +126,9 @@ class RSSFeed {
 
   @override
   int get hashCode => id.hashCode;
+
+  /// Unread article count for this feed (populated by FeedProvider).
+  int unreadCount = 0;
 
   @override
   String toString() {

@@ -1,19 +1,26 @@
+import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter/foundation.dart';
-import 'themes/app_theme.dart';
-import 'providers/feed_provider.dart';
+
 import 'providers/article_provider.dart';
+import 'providers/feed_provider.dart';
 import 'providers/settings_provider.dart';
 import 'screens/home_screen.dart';
+import 'theme/app_theme.dart';
+import 'theme/app_tokens.dart';
+import 'utils/app_logger.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Draw behind the status and gesture bars; the glass bars blur what is under
+  // them.
+  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   runApp(const FreeAdApp());
 }
 
-class ObsidianReaderApp extends StatelessWidget {
-  const ObsidianReaderApp({super.key});
+class FreeAdApp extends StatelessWidget {
+  const FreeAdApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -23,15 +30,32 @@ class ObsidianReaderApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => FeedProvider()),
         ChangeNotifierProvider(create: (_) => ArticleProvider()),
       ],
-      child: Consumer<SettingsProvider>(
-        builder: (context, settings, child) {
-          return MaterialApp(
-            title: 'FreeAd',
-            theme: AppTheme.lightTheme,
-            darkTheme: AppTheme.darkTheme,
-            themeMode: settings.themeMode,
-            home: const AppInitializer(),
-            debugShowCheckedModeBanner: false,
+      child: DynamicColorBuilder(
+        builder: (lightDynamic, darkDynamic) {
+          return Consumer<SettingsProvider>(
+            builder: (context, settings, child) {
+              final useDynamic = settings.useDynamicColor;
+              return MaterialApp(
+                title: 'FreeAd',
+                theme: AppTheme.light(
+                  accent: settings.accent,
+                  dynamicScheme: useDynamic ? lightDynamic : null,
+                  pureBlack: false,
+                ),
+                darkTheme: AppTheme.dark(
+                  accent: settings.accent,
+                  dynamicScheme: useDynamic ? darkDynamic : null,
+                  pureBlack: settings.pureBlack,
+                ),
+                themeMode: settings.themeMode,
+                themeAnimationDuration: const Duration(milliseconds: 250),
+                themeAnimationCurve: Curves.easeOutCubic,
+                home: const AppInitializer(),
+                debugShowCheckedModeBanner: false,
+                builder: (context, child) =>
+                    _SystemUiStyler(child: child ?? const SizedBox.shrink()),
+              );
+            },
           );
         },
       ),
@@ -39,8 +63,31 @@ class ObsidianReaderApp extends StatelessWidget {
   }
 }
 
-class FreeAdApp extends ObsidianReaderApp {
-  const FreeAdApp({super.key});
+/// Keeps the status and navigation bars transparent and their icons legible
+/// against the current theme.
+class _SystemUiStyler extends StatelessWidget {
+  const _SystemUiStyler({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final iconBrightness = isDark ? Brightness.light : Brightness.dark;
+
+    final style = SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: iconBrightness,
+      statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
+      systemNavigationBarColor: Colors.transparent,
+      systemNavigationBarDividerColor: Colors.transparent,
+      systemNavigationBarIconBrightness: iconBrightness,
+      systemNavigationBarContrastEnforced: false,
+      systemStatusBarContrastEnforced: false,
+    );
+
+    return AnnotatedRegion<SystemUiOverlayStyle>(value: style, child: child);
+  }
 }
 
 class AppInitializer extends StatefulWidget {
@@ -62,50 +109,57 @@ class _AppInitializerState extends State<AppInitializer> {
     final feedProvider = context.read<FeedProvider>();
     final articleProvider = context.read<ArticleProvider>();
 
-    await settingsProvider.init();
-    await feedProvider.loadFeeds();
-    await articleProvider.loadArticles();
-
-    if (mounted) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
-      );
+    try {
+      await settingsProvider.init();
+      await feedProvider.loadFeeds();
+      await articleProvider.loadArticles();
+    } catch (e, st) {
+      AppLog.e('App initialization failed', e, st);
     }
+
+    if (!mounted) return;
+    Navigator.of(
+      context,
+    ).pushReplacement(MaterialPageRoute(builder: (_) => const HomeScreen()));
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final t = context.tokens;
+
     return Scaffold(
+      backgroundColor: t.bg,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: const Icon(
-                Icons.rss_feed_rounded,
-                size: 40,
-                color: Colors.black,
-              ),
+            Image.asset(
+              'assets/logo.png',
+              width: 96,
+              height: 96,
+              filterQuality: FilterQuality.medium,
+              errorBuilder: (context, error, stackTrace) =>
+                  Icon(Icons.rss_feed_rounded, size: 56, color: t.accent),
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: t.spaceXl),
             Text(
               'FreeAd',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-                letterSpacing: -0.5,
+              style: theme.textTheme.headlineSmall?.copyWith(
+                color: t.textPrimary,
               ),
             ),
-            const SizedBox(height: 48),
-            const SizedBox(
-              width: 40,
-              height: 40,
-              child: CircularProgressIndicator(strokeWidth: 3),
+            SizedBox(height: t.space3xl),
+            SizedBox(
+              width: 132,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(2),
+                child: LinearProgressIndicator(
+                  minHeight: 2,
+                  color: t.accent,
+                  backgroundColor: t.surface2,
+                ),
+              ),
             ),
           ],
         ),
