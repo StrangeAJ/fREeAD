@@ -13,13 +13,16 @@ void main() {
       SharedPreferences.setMockInitialValues({});
 
       // Mock flutter_secure_storage
-      const MethodChannel('plugins.it_nomads.com/flutter_secure_storage')
-          .setMockMethodCallHandler((MethodCall methodCall) async {
-        if (methodCall.method == 'read') return null;
-        if (methodCall.method == 'write') return null;
-        if (methodCall.method == 'delete') return null;
-        return null;
-      });
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+            const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
+            (MethodCall methodCall) async {
+              if (methodCall.method == 'read') return null;
+              if (methodCall.method == 'write') return null;
+              if (methodCall.method == 'delete') return null;
+              return null;
+            },
+          );
 
       settingsProvider = SettingsProvider();
       await settingsProvider.init();
@@ -27,7 +30,10 @@ void main() {
 
     test('should have default models', () {
       expect(settingsProvider.openaiModel, equals('gpt-4o-mini'));
-      expect(settingsProvider.nvidiaModel, equals('meta/llama-3.1-8b-instruct'));
+      expect(
+        settingsProvider.nvidiaModel,
+        equals('meta/llama-3.1-8b-instruct'),
+      );
       expect(settingsProvider.ollamaModel, equals('llama3.2'));
       expect(settingsProvider.ollamaBaseUrl, equals('http://localhost:11434'));
     });
@@ -38,7 +44,10 @@ void main() {
     });
 
     test('should return correct model for provider', () {
-      expect(settingsProvider.getModelForProvider(SettingsProvider.providerOpenAI), equals('gpt-4o-mini'));
+      expect(
+        settingsProvider.getModelForProvider(SettingsProvider.providerOpenAI),
+        equals('gpt-4o-mini'),
+      );
     });
   });
 }

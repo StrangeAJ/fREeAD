@@ -68,9 +68,8 @@ class ArticleProvider with ChangeNotifier {
     RssService? rssService,
     ArticleExtractor? extractor,
   }) : _database = database ?? DatabaseService(),
-        _rss = rssService ?? RssService(),
-        _extractor =
-            extractor ?? ArticleExtractor(webview: WebviewExtractor());
+       _rss = rssService ?? RssService(),
+       _extractor = extractor ?? ArticleExtractor(webview: WebviewExtractor());
 
   final DatabaseService _database;
   final RssService _rss;
@@ -186,11 +185,7 @@ class ArticleProvider with ChangeNotifier {
   /// Refreshes every active feed with [refreshConcurrency] fetches in flight.
   Future<RefreshSummary> refreshAllArticles() async {
     if (_refreshProgress != null) {
-      return const RefreshSummary(
-        totalFeeds: 0,
-        newArticles: 0,
-        skipped: true,
-      );
+      return const RefreshSummary(totalFeeds: 0, newArticles: 0, skipped: true);
     }
 
     List<RSSFeed> feeds;
@@ -543,11 +538,10 @@ class ArticleProvider with ChangeNotifier {
 
   /// Downloads full bodies for the newest unread articles, for offline reading.
   Future<int> prefetchFullArticles({int limit = 20}) async {
-    final candidates =
-        _articles
-            .where((a) => !a.isRead && !a.hasFullContent)
-            .take(limit)
-            .toList();
+    final candidates = _articles
+        .where((a) => !a.isRead && !a.hasFullContent)
+        .take(limit)
+        .toList();
     if (candidates.isEmpty) return 0;
 
     var stored = 0;

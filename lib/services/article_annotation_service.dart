@@ -5,7 +5,8 @@ import '../models/article_note.dart';
 import 'database_service.dart';
 
 class ArticleAnnotationService {
-  static final ArticleAnnotationService _instance = ArticleAnnotationService._internal();
+  static final ArticleAnnotationService _instance =
+      ArticleAnnotationService._internal();
   factory ArticleAnnotationService() => _instance;
   ArticleAnnotationService._internal();
 
@@ -80,7 +81,9 @@ class ArticleAnnotationService {
     );
   }
 
-  Future<List<ArticleHighlight>> getHighlightsByArticle(String articleId) async {
+  Future<List<ArticleHighlight>> getHighlightsByArticle(
+    String articleId,
+  ) async {
     if (kIsWeb) return [];
 
     final db = await _databaseService.database;
@@ -118,11 +121,7 @@ class ArticleAnnotationService {
     if (kIsWeb) return;
 
     final db = await _databaseService.database;
-    await db.delete(
-      'article_notes',
-      where: 'id = ?',
-      whereArgs: [noteId],
-    );
+    await db.delete('article_notes', where: 'id = ?', whereArgs: [noteId]);
   }
 
   Future<List<ArticleNote>> getNotesByArticle(String articleId) async {

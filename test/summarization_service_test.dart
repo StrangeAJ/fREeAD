@@ -15,9 +15,9 @@ void main() {
       // Mock flutter_secure_storage so key reads return null (no key set)
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(
-        const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
-        (MethodCall methodCall) async => null,
-      );
+            const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
+            (MethodCall methodCall) async => null,
+          );
 
       summarizationService = SummarizationService();
     });

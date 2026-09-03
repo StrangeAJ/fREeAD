@@ -16,10 +16,8 @@ String longParagraph(int i) =>
     'enough meaningful text, with several commas, clauses, and words, to '
     'be scored as real article content by the readability algorithm.';
 
-String paragraphs(int count, {int start = 0}) => List.generate(
-  count,
-  (i) => '<p>${longParagraph(start + i)}</p>',
-).join();
+String paragraphs(int count, {int start = 0}) =>
+    List.generate(count, (i) => '<p>${longParagraph(start + i)}</p>').join();
 
 /// Minimal JSON string encoder for embedding text in inline fixtures.
 String jsonString(String value) =>
@@ -188,26 +186,29 @@ void main() {
       expect(result!.title, 'The Real Article Title');
     });
 
-    test('recovers lazy images, srcsets and pictures; drops tracking pixels', () {
-      final result = readability.parse(
-        fixture('lazy_images.html'),
-        'https://lazy.example/news/story.html',
-      );
-      expect(result, isNotNull);
-      expect(
-        result!.html,
-        contains('https://lazy.example/images/photo.jpg'),
-      );
-      // The largest srcset candidate wins.
-      expect(result.html, contains('https://lazy.example/images/wide-1600.jpg'));
-      expect(result.html, isNot(contains('wide-400')));
-      expect(result.html, isNot(contains('tracker.example')));
-      expect(result.html, isNot(contains('data:image')));
-      expect(
-        result.html,
-        contains('href="https://lazy.example/news/part2.html"'),
-      );
-    });
+    test(
+      'recovers lazy images, srcsets and pictures; drops tracking pixels',
+      () {
+        final result = readability.parse(
+          fixture('lazy_images.html'),
+          'https://lazy.example/news/story.html',
+        );
+        expect(result, isNotNull);
+        expect(result!.html, contains('https://lazy.example/images/photo.jpg'));
+        // The largest srcset candidate wins.
+        expect(
+          result.html,
+          contains('https://lazy.example/images/wide-1600.jpg'),
+        );
+        expect(result.html, isNot(contains('wide-400')));
+        expect(result.html, isNot(contains('tracker.example')));
+        expect(result.html, isNot(contains('data:image')));
+        expect(
+          result.html,
+          contains('href="https://lazy.example/news/part2.html"'),
+        );
+      },
+    );
 
     test('sanitises the output: no scripts, no classes', () {
       final html =
@@ -243,7 +244,8 @@ void main() {
         30,
         (i) => '<a href="/section/$i">Section number $i of the site</a>',
       ).join(' ');
-      final html = '<html><body><div id="main"><p>$links</p></div></body></html>';
+      final html =
+          '<html><body><div id="main"><p>$links</p></div></body></html>';
       final result = readability.parse(html, 'https://links.example/');
       if (result != null) {
         expect(result.isGood, isFalse);
@@ -350,7 +352,10 @@ void main() {
 
     test('the v2 bug selector really does throw', () {
       final document = _sampleDocument();
-      expect(() => document.querySelectorAll(':scope > div'), throwsA(anything));
+      expect(
+        () => document.querySelectorAll(':scope > div'),
+        throwsA(anything),
+      );
     });
   });
 }

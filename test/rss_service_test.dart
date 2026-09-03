@@ -135,7 +135,10 @@ void main() {
     test('parses channel metadata', () {
       final feed = rss.parseFeedInfo(fixture('rss2.xml'), feedUrl);
       expect(feed.title, 'Quiet Instrument Daily');
-      expect(feed.description, 'Long form reporting about & around technology.');
+      expect(
+        feed.description,
+        'Long form reporting about & around technology.',
+      );
       expect(feed.siteUrl, 'https://example.com/');
       expect(feed.imageUrl, 'https://example.com/assets/logo.png');
       expect(feed.language, 'en-GB');

@@ -28,11 +28,13 @@ class SegmentedPills<T> extends StatelessWidget {
 
   /// The list of options to display.
   final List<T> values;
+
   /// Alias for [values] for API compatibility.
   List<T> get options => values;
 
   /// The currently selected value (primary parameter).
   final T? selected;
+
   /// Alias for [selected] for API compatibility.
   final T? value;
 
@@ -45,6 +47,12 @@ class SegmentedPills<T> extends StatelessWidget {
   final bool expand;
 
   final bool dense;
+
+  /// Alias for [dense] for API compatibility.
+  final bool compact;
+
+  /// True when either [dense] or its alias [compact] is set.
+  bool get isDense => dense || compact;
 
   @override
   Widget build(BuildContext context) {
@@ -98,8 +106,8 @@ class SegmentedPills<T> extends StatelessWidget {
           splashColor: t.accentSoft,
           child: Padding(
             padding: EdgeInsets.symmetric(
-              horizontal: dense ? t.spaceM : t.spaceL,
-              vertical: dense ? 6 : t.spaceS + 1,
+              horizontal: isDense ? t.spaceM : t.spaceL,
+              vertical: isDense ? 6 : t.spaceS + 1,
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,

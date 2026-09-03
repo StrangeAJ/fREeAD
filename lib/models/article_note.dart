@@ -3,7 +3,8 @@ class ArticleNote {
   final String articleId;
   final String content;
   final int? position; // Position in the article where the note is attached
-  final String? highlightId; // Reference to highlight if note is attached to a highlight
+  final String?
+  highlightId; // Reference to highlight if note is attached to a highlight
   final DateTime createdAt;
   final DateTime updatedAt;
 

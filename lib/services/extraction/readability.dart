@@ -67,77 +67,73 @@ class Readability {
   );
 
   /// Site specific selectors, tried before generic scoring.
-  static const Map<String, List<String>> siteSpecificSelectors =
-      <String, List<String>>{
-        // Platforms / CMS
-        'medium.com': [
-          'article section',
-          '.postArticle-content',
-          '.section-content',
-        ],
-        'substack.com': ['.body.markup', '.available-content', '.post-content'],
-        'dev.to': ['#article-body', '.crayons-article__main', '.article-body'],
-        'hashnode.dev': ['.prose', '#post-content-parent'],
-        'hashnode.com': ['.prose', '#post-content-parent'],
-        'ghost.io': ['.gh-content', '.post-content', '.article-content'],
-        'wordpress.com': ['.entry-content', '.post-content', '.article-content'],
-        'blogspot.com': ['.post-body', '.entry-content'],
-        'blogger.com': ['.post-body', '.entry-content'],
-        'tumblr.com': ['.post-content', '.body-text'],
-        'notion.site': ['.notion-page-content', '.layout-content'],
-        // News publishers
-        'bbc.com': [
-          '[data-component="text-block"]',
-          'article',
-          '.article__body-content',
-          '.story-body__inner',
-        ],
-        'bbc.co.uk': [
-          '[data-component="text-block"]',
-          'article',
-          '.story-body__inner',
-        ],
-        'theguardian.com': [
-          '.article-body-commercial-selector',
-          '.content__article-body',
-          '#maincontent',
-        ],
-        'nytimes.com': [
-          'section[name="articleBody"]',
-          '.StoryBodyCompanionColumn',
-          '.meteredContent',
-        ],
-        'reuters.com': [
-          '[data-testid="ArticleBody"]',
-          '.article-body__content',
-          '.StandardArticleBody_body',
-        ],
-        'techcrunch.com': [
-          '.entry-content',
-          '.article-content',
-          '.wp-block-post-content',
-        ],
-        'theverge.com': [
-          '.duet--article--article-body-component-container',
-          '.c-entry-content',
-        ],
-        'arstechnica.com': [
-          '.post-content',
-          '.article-content',
-          '.article-guts',
-        ],
-        'wired.com': ['.body__inner-container', '.article__body'],
-        'engadget.com': ['.article-text', '.o-article_block'],
-        'cnbc.com': ['.ArticleBody-articleBody', '.group'],
-        'bloomberg.com': ['.body-content', '.body-copy-v2'],
-        'washingtonpost.com': ['.article-body', '.grid-body'],
-        'ndtv.com': ['.sp-cn', '.ins_storybody', '#ins_storybody'],
-        'timesofindia.indiatimes.com': ['._s30J', '.ga-headlines', '.Normal'],
-        'indiatimes.com': ['._s30J', '.Normal'],
-        'thehindu.com': ['.articlebodycontent', '[itemprop="articleBody"]'],
-        'indianexpress.com': ['.story_details', '.full-details'],
-        'hindustantimes.com': ['.detail', '.storyDetails'],
-      };
+  static const Map<String, List<String>>
+  siteSpecificSelectors = <String, List<String>>{
+    // Platforms / CMS
+    'medium.com': [
+      'article section',
+      '.postArticle-content',
+      '.section-content',
+    ],
+    'substack.com': ['.body.markup', '.available-content', '.post-content'],
+    'dev.to': ['#article-body', '.crayons-article__main', '.article-body'],
+    'hashnode.dev': ['.prose', '#post-content-parent'],
+    'hashnode.com': ['.prose', '#post-content-parent'],
+    'ghost.io': ['.gh-content', '.post-content', '.article-content'],
+    'wordpress.com': ['.entry-content', '.post-content', '.article-content'],
+    'blogspot.com': ['.post-body', '.entry-content'],
+    'blogger.com': ['.post-body', '.entry-content'],
+    'tumblr.com': ['.post-content', '.body-text'],
+    'notion.site': ['.notion-page-content', '.layout-content'],
+    // News publishers
+    'bbc.com': [
+      '[data-component="text-block"]',
+      'article',
+      '.article__body-content',
+      '.story-body__inner',
+    ],
+    'bbc.co.uk': [
+      '[data-component="text-block"]',
+      'article',
+      '.story-body__inner',
+    ],
+    'theguardian.com': [
+      '.article-body-commercial-selector',
+      '.content__article-body',
+      '#maincontent',
+    ],
+    'nytimes.com': [
+      'section[name="articleBody"]',
+      '.StoryBodyCompanionColumn',
+      '.meteredContent',
+    ],
+    'reuters.com': [
+      '[data-testid="ArticleBody"]',
+      '.article-body__content',
+      '.StandardArticleBody_body',
+    ],
+    'techcrunch.com': [
+      '.entry-content',
+      '.article-content',
+      '.wp-block-post-content',
+    ],
+    'theverge.com': [
+      '.duet--article--article-body-component-container',
+      '.c-entry-content',
+    ],
+    'arstechnica.com': ['.post-content', '.article-content', '.article-guts'],
+    'wired.com': ['.body__inner-container', '.article__body'],
+    'engadget.com': ['.article-text', '.o-article_block'],
+    'cnbc.com': ['.ArticleBody-articleBody', '.group'],
+    'bloomberg.com': ['.body-content', '.body-copy-v2'],
+    'washingtonpost.com': ['.article-body', '.grid-body'],
+    'ndtv.com': ['.sp-cn', '.ins_storybody', '#ins_storybody'],
+    'timesofindia.indiatimes.com': ['._s30J', '.ga-headlines', '.Normal'],
+    'indiatimes.com': ['._s30J', '.Normal'],
+    'thehindu.com': ['.articlebodycontent', '[itemprop="articleBody"]'],
+    'indianexpress.com': ['.story_details', '.full-details'],
+    'hindustantimes.com': ['.detail', '.storyDetails'],
+  };
 
   /// Parses [html] fetched from [url] into an [ExtractionResult].
   ///
@@ -497,10 +493,7 @@ class Readability {
       if (element.parentNode == null) continue;
 
       final tag = element.localName ?? '';
-      if (tag == 'body' ||
-          tag == 'html' ||
-          tag == 'article' ||
-          tag == 'main') {
+      if (tag == 'body' || tag == 'html' || tag == 'article' || tag == 'main') {
         continue;
       }
 
@@ -541,8 +534,25 @@ class Readability {
   }
 
   static const Set<String> _blockTags = <String>{
-    'p', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'pre',
-    'ul', 'ol', 'li', 'table', 'tr', 'td', 'section', 'article', 'figure',
+    'p',
+    'div',
+    'h1',
+    'h2',
+    'h3',
+    'h4',
+    'h5',
+    'h6',
+    'blockquote',
+    'pre',
+    'ul',
+    'ol',
+    'li',
+    'table',
+    'tr',
+    'td',
+    'section',
+    'article',
+    'figure',
   };
 
   bool _hasBlockChild(dom.Element element) {
@@ -648,14 +658,7 @@ class Readability {
       'section' => 8,
       'div' => 5,
       'pre' || 'td' || 'blockquote' || 'figure' => 3,
-      'address' ||
-      'ol' ||
-      'ul' ||
-      'dl' ||
-      'dd' ||
-      'dt' ||
-      'li' ||
-      'form' => -3,
+      'address' || 'ol' || 'ul' || 'dl' || 'dd' || 'dt' || 'li' || 'form' => -3,
       'h1' || 'h2' || 'h3' || 'h4' || 'h5' || 'h6' || 'th' => -5,
       _ => 0,
     };

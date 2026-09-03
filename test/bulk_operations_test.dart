@@ -30,7 +30,10 @@ void main() {
 
     test('Bulk category update returns correct result format', () async {
       // Test with empty list
-      final result = await feedProvider.updateFeedsCategory([], 'Test Category');
+      final result = await feedProvider.updateFeedsCategory(
+        [],
+        'Test Category',
+      );
       expect(result, isA<Map<String, int>>());
       expect(result.containsKey('success'), isTrue);
       expect(result.containsKey('failed'), isTrue);

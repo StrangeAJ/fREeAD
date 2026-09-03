@@ -28,13 +28,13 @@ void main() {
 </opml>''';
 
       final feeds = OpmlService.parseOpml(opmlContent);
-      
+
       expect(feeds.length, equals(2));
       expect(feeds[0].title, equals('TechCrunch'));
       expect(feeds[0].url, equals('https://feeds.feedburner.com/TechCrunch'));
       expect(feeds[0].description, equals('Technology news'));
       expect(feeds[0].categoryId, equals('technology'));
-      
+
       expect(feeds[1].title, equals('BBC News'));
       expect(feeds[1].url, equals('http://feeds.bbci.co.uk/news/rss.xml'));
       expect(feeds[1].categoryId, equals('general'));
@@ -50,7 +50,7 @@ void main() {
 </opml>''';
 
       final feeds = OpmlService.parseOpml(opmlContent);
-      
+
       expect(feeds.length, equals(1));
       expect(feeds[0].categoryId, equals('general'));
     });
@@ -67,7 +67,7 @@ void main() {
 </opml>''';
 
       final feeds = OpmlService.parseOpml(opmlContent);
-      
+
       expect(feeds.length, equals(1));
       expect(feeds[0].title, equals('Valid Feed'));
     });
@@ -116,7 +116,7 @@ void main() {
       ];
 
       final opmlContent = OpmlService.generateOpml(feeds, categories);
-      
+
       expect(opmlContent, contains('<?xml version="1.0" encoding="UTF-8"?>'));
       expect(opmlContent, contains('<opml version="1.0">'));
       expect(opmlContent, contains('TechCrunch'));
@@ -139,7 +139,7 @@ void main() {
 </opml>''';
 
       final feeds = OpmlService.parseOpml(opmlContent);
-      
+
       expect(feeds[0].categoryId, equals('technology'));
       expect(feeds[1].categoryId, equals('sports'));
       expect(feeds[2].categoryId, equals('business'));

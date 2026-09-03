@@ -160,7 +160,7 @@ void main() {
         tester,
         () => const AppScaffold(
           body: SectionHeader(
-            'Appearance',
+            label: 'Appearance',
             actionLabel: 'Reset',
             icon: Icons.palette_rounded,
           ),
@@ -687,7 +687,7 @@ void main() {
         body: ListView(
           padding: const EdgeInsets.all(16),
           children: <Widget>[
-            const SectionHeader('Appearance'),
+            const SectionHeader(label: 'Appearance'),
             SurfaceCard(
               padding: const EdgeInsets.all(16),
               child: Column(

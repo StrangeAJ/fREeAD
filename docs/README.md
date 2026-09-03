@@ -23,12 +23,16 @@ Implementation guides and how-to documentation:
 - FEED_MANAGEMENT_IMPLEMENTATION.md - Technical implementation details
 - enable_developer_mode.md - Developer mode setup guide
 
+## v3
+
+- V3_OVERHAUL_PLAN.md - architecture and rationale for the v3 rewrite (extraction pipeline, design system, AI layer, screens)
+- CHANGELOG.md - release notes, starting at 3.0.0
+
+The /features, /fixes and /guides docs below predate the v3 overhaul and describe v2 behaviour; several of the bugs they document (extraction, feed management) were root-caused and fixed differently in v3 - see CHANGELOG.md.
+
 ## Main Documentation
 - README.md - Main project documentation (in project root)
 
 ## Related Directories
 - /scripts - Build and utility scripts
 - /samples - Sample configuration files
-- /tests/manual - Manual testing scripts
-
-Generated on: 07/31/2025 12:37:01

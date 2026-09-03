@@ -1,25 +1,52 @@
 import 'package:flutter/foundation.dart';
+
 import '../models/article_highlight.dart';
 import '../models/article_note.dart';
 import '../services/article_annotation_service.dart';
+import '../utils/app_logger.dart';
 
+/// Highlights and notes for one article.
+///
+/// Created per reader screen. Offsets are indices into the article's *plain
+/// text projection* (see `HighlightInjector.plainText`), which the reader hands
+/// over with [setArticleText] before any selection happens.
 class ArticleAnnotationProvider extends ChangeNotifier {
-  final ArticleAnnotationService _annotationService = ArticleAnnotationService();
+  ArticleAnnotationProvider({ArticleAnnotationService? service})
+    : _annotationService = service ?? ArticleAnnotationService();
 
-  List<ArticleHighlight> _highlights = [];
-  List<ArticleNote> _notes = [];
+  final ArticleAnnotationService _annotationService;
+
+  List<ArticleHighlight> _highlights = <ArticleHighlight>[];
+  List<ArticleNote> _notes = <ArticleNote>[];
   bool _isEditMode = false;
+  String _articleText = '';
   String? _selectedText;
   int? _selectionStart;
   int? _selectionEnd;
+  bool _disposed = false;
 
-  List<ArticleHighlight> get highlights => _highlights;
-  List<ArticleNote> get notes => _notes;
+  List<ArticleHighlight> get highlights => List.unmodifiable(_highlights);
+  List<ArticleNote> get notes => List.unmodifiable(_notes);
   bool get isEditMode => _isEditMode;
+
+  /// Text of the current selection, or null.
   String? get selectedText => _selectedText;
 
-  // Predefined highlight colors
-  static const List<String> highlightColors = [
+  /// Start of the current selection in the plain text projection.
+  int? get selectionStart => _selectionStart;
+
+  /// End (exclusive) of the current selection in the plain text projection.
+  int? get selectionEnd => _selectionEnd;
+
+  /// True when something is selected and can be highlighted.
+  bool get hasSelection =>
+      _selectedText != null && _selectedText!.trim().isNotEmpty;
+
+  /// The plain text projection the offsets are measured against.
+  String get articleText => _articleText;
+
+  /// Colours offered by the highlight picker.
+  static const List<String> highlightColors = <String>[
     '#FFEB3B', // Yellow
     '#4CAF50', // Green
     '#2196F3', // Blue
@@ -32,143 +59,224 @@ class ArticleAnnotationProvider extends ChangeNotifier {
     _isEditMode = !_isEditMode;
     if (!_isEditMode) {
       clearSelection();
+      return;
     }
-    notifyListeners();
+    _notify();
   }
 
-  void setSelection(String text, int start, int end) {
-    _selectedText = text;
-    _selectionStart = start;
-    _selectionEnd = end;
-    notifyListeners();
+  /// Stores the plain text projection new selections are resolved against.
+  void setArticleText(String text) {
+    if (_articleText == text) return;
+    _articleText = text;
+  }
+
+  /// Records the current selection.
+  ///
+  /// [start]/[end] are computed from the plain text projection (first
+  /// occurrence of [text]) when the caller does not know them - which is the
+  /// normal case, because `SelectionArea` only reports the selected string.
+  void setSelection(String text, {int? start, int? end}) {
+    final String trimmed = text.trim();
+    if (trimmed.isEmpty) {
+      clearSelection();
+      return;
+    }
+
+    var resolvedStart = start ?? _articleText.indexOf(trimmed);
+    if (resolvedStart < 0) resolvedStart = 0;
+    final int resolvedEnd = end ?? (resolvedStart + trimmed.length);
+
+    _selectedText = trimmed;
+    _selectionStart = resolvedStart;
+    _selectionEnd = resolvedEnd;
+    _notify();
   }
 
   void clearSelection() {
     _selectedText = null;
     _selectionStart = null;
     _selectionEnd = null;
-    notifyListeners();
+    _notify();
   }
 
   Future<void> loadAnnotations(String articleId) async {
     try {
+      await _annotationService.initializeTables();
       _highlights = await _annotationService.getHighlightsByArticle(articleId);
       _notes = await _annotationService.getNotesByArticle(articleId);
-      notifyListeners();
-    } catch (e) {
-      debugPrint('Error loading annotations: $e');
+      _notify();
+    } catch (e, st) {
+      AppLog.w('Could not load annotations for $articleId', e, st);
     }
   }
 
-  Future<void> addHighlight(String articleId, String color, {String? note}) async {
-    if (_selectedText == null || _selectionStart == null || _selectionEnd == null) return;
+  /// Creates a highlight from the current selection.
+  Future<ArticleHighlight?> addHighlight(
+    String articleId,
+    String color, {
+    String? note,
+  }) async {
+    final String? text = _selectedText;
+    if (text == null || text.trim().isEmpty) return null;
 
-    final highlight = ArticleHighlight(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
+    final DateTime now = DateTime.now();
+    final ArticleHighlight highlight = ArticleHighlight(
+      id: '${now.microsecondsSinceEpoch}',
       articleId: articleId,
-      selectedText: _selectedText!,
-      startIndex: _selectionStart!,
-      endIndex: _selectionEnd!,
+      selectedText: text,
+      startIndex: _selectionStart ?? 0,
+      endIndex: _selectionEnd ?? text.length,
       color: color,
       note: note,
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
+      createdAt: now,
+      updatedAt: now,
     );
 
     try {
       await _annotationService.addHighlight(highlight);
-      _highlights.add(highlight);
-      _highlights.sort((a, b) => a.startIndex.compareTo(b.startIndex));
-      clearSelection();
-      notifyListeners();
-    } catch (e) {
-      debugPrint('Error adding highlight: $e');
+    } catch (e, st) {
+      AppLog.w('Could not save highlight', e, st);
+      return null;
     }
+
+    _highlights = <ArticleHighlight>[..._highlights, highlight]
+      ..sort(
+        (ArticleHighlight a, ArticleHighlight b) =>
+            a.startIndex.compareTo(b.startIndex),
+      );
+    clearSelection();
+    return highlight;
   }
 
   Future<void> updateHighlight(ArticleHighlight highlight) async {
+    final ArticleHighlight updated = highlight.copyWith(
+      updatedAt: DateTime.now(),
+    );
     try {
-      final updatedHighlight = highlight.copyWith(updatedAt: DateTime.now());
-      await _annotationService.updateHighlight(updatedHighlight);
-
-      final index = _highlights.indexWhere((h) => h.id == highlight.id);
-      if (index != -1) {
-        _highlights[index] = updatedHighlight;
-        notifyListeners();
-      }
-    } catch (e) {
-      debugPrint('Error updating highlight: $e');
+      await _annotationService.updateHighlight(updated);
+    } catch (e, st) {
+      AppLog.w('Could not update highlight ${highlight.id}', e, st);
+      return;
     }
+    _highlights = <ArticleHighlight>[
+      for (final ArticleHighlight h in _highlights)
+        if (h.id == updated.id) updated else h,
+    ];
+    _notify();
   }
 
   Future<void> deleteHighlight(String highlightId) async {
     try {
       await _annotationService.deleteHighlight(highlightId);
-      _highlights.removeWhere((h) => h.id == highlightId);
-      notifyListeners();
-    } catch (e) {
-      debugPrint('Error deleting highlight: $e');
+    } catch (e, st) {
+      AppLog.w('Could not delete highlight $highlightId', e, st);
+      return;
     }
+    _highlights = _highlights
+        .where((ArticleHighlight h) => h.id != highlightId)
+        .toList();
+    _notes = _notes
+        .where((ArticleNote n) => n.highlightId != highlightId)
+        .toList();
+    _notify();
   }
 
-  Future<void> addNote(String articleId, String content, {int? position, String? highlightId}) async {
-    final note = ArticleNote(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
+  /// Highlight carrying [highlightId], or null.
+  ArticleHighlight? highlightById(String highlightId) {
+    for (final ArticleHighlight highlight in _highlights) {
+      if (highlight.id == highlightId) return highlight;
+    }
+    return null;
+  }
+
+  Future<ArticleNote?> addNote(
+    String articleId,
+    String content, {
+    int? position,
+    String? highlightId,
+  }) async {
+    if (content.trim().isEmpty) return null;
+
+    final DateTime now = DateTime.now();
+    final ArticleNote note = ArticleNote(
+      id: '${now.microsecondsSinceEpoch}',
       articleId: articleId,
-      content: content,
-      position: position,
+      content: content.trim(),
+      position: position ?? _selectionStart,
       highlightId: highlightId,
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
+      createdAt: now,
+      updatedAt: now,
     );
 
     try {
       await _annotationService.addNote(note);
-      _notes.add(note);
-      _notes.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-      notifyListeners();
-    } catch (e) {
-      debugPrint('Error adding note: $e');
+    } catch (e, st) {
+      AppLog.w('Could not save note', e, st);
+      return null;
     }
+
+    _notes = <ArticleNote>[note, ..._notes]
+      ..sort(
+        (ArticleNote a, ArticleNote b) => b.createdAt.compareTo(a.createdAt),
+      );
+    _notify();
+    return note;
   }
 
   Future<void> updateNote(ArticleNote note) async {
+    final ArticleNote updated = note.copyWith(updatedAt: DateTime.now());
     try {
-      final updatedNote = note.copyWith(updatedAt: DateTime.now());
-      await _annotationService.updateNote(updatedNote);
-
-      final index = _notes.indexWhere((n) => n.id == note.id);
-      if (index != -1) {
-        _notes[index] = updatedNote;
-        notifyListeners();
-      }
-    } catch (e) {
-      debugPrint('Error updating note: $e');
+      await _annotationService.updateNote(updated);
+    } catch (e, st) {
+      AppLog.w('Could not update note ${note.id}', e, st);
+      return;
     }
+    _notes = <ArticleNote>[
+      for (final ArticleNote n in _notes)
+        if (n.id == updated.id) updated else n,
+    ];
+    _notify();
   }
 
   Future<void> deleteNote(String noteId) async {
     try {
       await _annotationService.deleteNote(noteId);
-      _notes.removeWhere((n) => n.id == noteId);
-      notifyListeners();
-    } catch (e) {
-      debugPrint('Error deleting note: $e');
+    } catch (e, st) {
+      AppLog.w('Could not delete note $noteId', e, st);
+      return;
     }
+    _notes = _notes.where((ArticleNote n) => n.id != noteId).toList();
+    _notify();
   }
 
-  List<ArticleNote> getNotesForHighlight(String highlightId) {
-    return _notes.where((note) => note.highlightId == highlightId).toList();
-  }
+  List<ArticleNote> getNotesForHighlight(String highlightId) => _notes
+      .where((ArticleNote note) => note.highlightId == highlightId)
+      .toList();
+
+  /// Free-standing notes - those not attached to a highlight.
+  List<ArticleNote> get standaloneNotes =>
+      _notes.where((ArticleNote note) => note.highlightId == null).toList();
 
   Future<void> clearAllAnnotations(String articleId) async {
     try {
       await _annotationService.deleteAllAnnotationsForArticle(articleId);
-      _highlights.clear();
-      _notes.clear();
-      notifyListeners();
-    } catch (e) {
-      debugPrint('Error clearing annotations: $e');
+    } catch (e, st) {
+      AppLog.w('Could not clear annotations for $articleId', e, st);
+      return;
     }
+    _highlights = <ArticleHighlight>[];
+    _notes = <ArticleNote>[];
+    _notify();
+  }
+
+  void _notify() {
+    if (_disposed) return;
+    notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
   }
 }

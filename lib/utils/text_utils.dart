@@ -60,9 +60,7 @@ String stripUtm(String url) {
     kept[key] = values;
   });
 
-  final cleaned = uri.replace(
-    queryParameters: kept.isEmpty ? null : kept,
-  );
+  final cleaned = uri.replace(queryParameters: kept.isEmpty ? null : kept);
   var result = cleaned.toString();
   // Uri.replace with an empty map still leaves a dangling '?'.
   if (kept.isEmpty && result.endsWith('?')) {

@@ -50,10 +50,7 @@ void main() {
         baseUrl: 'https://site.example/news/2026/story.html',
       );
       expect(out, contains('href="https://site.example/x/y"'));
-      expect(
-        out,
-        contains('src="https://site.example/news/2026/img/pic.jpg"'),
-      );
+      expect(out, contains('src="https://site.example/news/2026/img/pic.jpg"'));
     });
 
     test('strips javascript: hrefs but keeps the text', () {
@@ -143,7 +140,10 @@ void main() {
     });
 
     test('decodes entities', () {
-      expect(HtmlSanitizer.toPlainText('<p>Tom &amp; Jerry</p>'), 'Tom & Jerry');
+      expect(
+        HtmlSanitizer.toPlainText('<p>Tom &amp; Jerry</p>'),
+        'Tom & Jerry',
+      );
     });
   });
 

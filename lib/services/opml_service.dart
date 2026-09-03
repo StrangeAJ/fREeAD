@@ -147,7 +147,10 @@ class OpmlService {
         builder.element(
           'head',
           nest: () {
-            builder.element('title', nest: () => builder.text('FreeAd RSS Feeds'));
+            builder.element(
+              'title',
+              nest: () => builder.text('FreeAd RSS Feeds'),
+            );
             builder.element(
               'dateCreated',
               nest: () => builder.text(DateTime.now().toIso8601String()),

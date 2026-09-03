@@ -36,30 +36,57 @@ void main() {
     });
 
     test('missing weekday', () {
-      expectUtc('15 Nov 1994 12:45:26 GMT', DateTime.utc(1994, 11, 15, 12, 45, 26));
+      expectUtc(
+        '15 Nov 1994 12:45:26 GMT',
+        DateTime.utc(1994, 11, 15, 12, 45, 26),
+      );
     });
 
     test('missing seconds', () {
-      expectUtc('Mon, 30 Jun 2026 22:15 GMT', DateTime.utc(2026, 6, 30, 22, 15));
+      expectUtc(
+        'Mon, 30 Jun 2026 22:15 GMT',
+        DateTime.utc(2026, 6, 30, 22, 15),
+      );
     });
 
     test('two digit year below 50 is 20xx', () {
-      expectUtc('15 Nov 26 12:45:26 UT', DateTime.utc(2026, 11, 15, 12, 45, 26));
+      expectUtc(
+        '15 Nov 26 12:45:26 UT',
+        DateTime.utc(2026, 11, 15, 12, 45, 26),
+      );
     });
 
     test('two digit year above 50 is 19xx', () {
-      expectUtc('15 Nov 99 12:45:26 GMT', DateTime.utc(1999, 11, 15, 12, 45, 26));
+      expectUtc(
+        '15 Nov 99 12:45:26 GMT',
+        DateTime.utc(1999, 11, 15, 12, 45, 26),
+      );
     });
 
     test('named US zones', () {
-      expectUtc('Sat, 07 Sep 2002 09:42:31 EST', DateTime.utc(2002, 9, 7, 14, 42, 31));
-      expectUtc('Sat, 07 Sep 2002 09:42:31 PDT', DateTime.utc(2002, 9, 7, 16, 42, 31));
-      expectUtc('Sat, 07 Sep 2002 09:42:31 CDT', DateTime.utc(2002, 9, 7, 14, 42, 31));
-      expectUtc('Sat, 07 Sep 2002 09:42:31 MST', DateTime.utc(2002, 9, 7, 16, 42, 31));
+      expectUtc(
+        'Sat, 07 Sep 2002 09:42:31 EST',
+        DateTime.utc(2002, 9, 7, 14, 42, 31),
+      );
+      expectUtc(
+        'Sat, 07 Sep 2002 09:42:31 PDT',
+        DateTime.utc(2002, 9, 7, 16, 42, 31),
+      );
+      expectUtc(
+        'Sat, 07 Sep 2002 09:42:31 CDT',
+        DateTime.utc(2002, 9, 7, 14, 42, 31),
+      );
+      expectUtc(
+        'Sat, 07 Sep 2002 09:42:31 MST',
+        DateTime.utc(2002, 9, 7, 16, 42, 31),
+      );
     });
 
     test('single letter military zone is treated as UTC', () {
-      expectUtc('Sat, 07 Sep 2002 09:42:31 A', DateTime.utc(2002, 9, 7, 9, 42, 31));
+      expectUtc(
+        'Sat, 07 Sep 2002 09:42:31 A',
+        DateTime.utc(2002, 9, 7, 9, 42, 31),
+      );
     });
 
     test('full weekday and month names', () {
@@ -77,7 +104,10 @@ void main() {
     });
 
     test('no zone at all falls back to UTC', () {
-      expectUtc('Tue, 15 Nov 1994 12:45:26', DateTime.utc(1994, 11, 15, 12, 45, 26));
+      expectUtc(
+        'Tue, 15 Nov 1994 12:45:26',
+        DateTime.utc(1994, 11, 15, 12, 45, 26),
+      );
     });
   });
 
@@ -131,7 +161,10 @@ void main() {
     });
 
     test('MMM d, yyyy with a time', () {
-      expectUtc('Nov 15, 1994 12:45:26 GMT', DateTime.utc(1994, 11, 15, 12, 45, 26));
+      expectUtc(
+        'Nov 15, 1994 12:45:26 GMT',
+        DateTime.utc(1994, 11, 15, 12, 45, 26),
+      );
     });
   });
 

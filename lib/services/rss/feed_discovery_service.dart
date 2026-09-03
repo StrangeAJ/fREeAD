@@ -82,7 +82,10 @@ class FeedDiscoveryService {
   static String normalizeInput(String input) {
     var value = input.trim();
     if (value.isEmpty) return value;
-    value = value.replaceFirst(RegExp(r'^feed://', caseSensitive: false), 'http://');
+    value = value.replaceFirst(
+      RegExp(r'^feed://', caseSensitive: false),
+      'http://',
+    );
     if (!RegExp(r'^https?://', caseSensitive: false).hasMatch(value)) {
       value = 'https://$value';
     }
@@ -114,19 +117,28 @@ class FeedDiscoveryService {
     // 3. Probe the usual suspects.
     final base = Uri.tryParse(url);
     if (base == null) return const <DiscoveredFeed>[];
-    final origin = base.replace(path: '', query: '', fragment: '');
+    // `Uri.replace(query: '', fragment: '')` sets *empty* (non-null) query/
+    // fragment components, so `hasQuery`/`hasFragment` stay true and the
+    // rendered URL keeps a stray `?#` suffix. Build a fresh origin instead.
+    final origin = Uri(
+      scheme: base.scheme,
+      host: base.host,
+      port: base.hasPort ? base.port : null,
+    );
 
     for (final path in commonPaths) {
       final candidate = _joinPath(origin, path);
       if (candidate == url) continue;
       final found = await _tryFeed(candidate);
       if (found != null) {
-        results.add(DiscoveredFeed(
-          url: found.url,
-          title: found.title,
-          type: found.type,
-          siteUrl: origin.toString(),
-        ));
+        results.add(
+          DiscoveredFeed(
+            url: found.url,
+            title: found.title,
+            type: found.type,
+            siteUrl: origin.toString(),
+          ),
+        );
         if (results.length >= 3) break;
       }
     }
@@ -212,12 +224,14 @@ class FeedDiscoveryService {
     for (final candidate in candidates.take(5)) {
       final feed = await _tryFeed(candidate.url);
       if (feed == null) continue;
-      verified.add(DiscoveredFeed(
-        url: candidate.url,
-        title: candidate.title.isNotEmpty ? candidate.title : feed.title,
-        type: feed.type,
-        siteUrl: candidate.siteUrl ?? feed.siteUrl,
-      ));
+      verified.add(
+        DiscoveredFeed(
+          url: candidate.url,
+          title: candidate.title.isNotEmpty ? candidate.title : feed.title,
+          type: feed.type,
+          siteUrl: candidate.siteUrl ?? feed.siteUrl,
+        ),
+      );
     }
     return verified.isEmpty ? candidates : verified;
   }

@@ -7,6 +7,7 @@ import 'providers/article_provider.dart';
 import 'providers/feed_provider.dart';
 import 'providers/settings_provider.dart';
 import 'screens/home_screen.dart';
+import 'services/ai/ai_service.dart';
 import 'theme/app_theme.dart';
 import 'theme/app_tokens.dart';
 import 'utils/app_logger.dart';
@@ -29,6 +30,16 @@ class FreeAdApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => SettingsProvider()),
         ChangeNotifierProvider(create: (_) => FeedProvider()),
         ChangeNotifierProvider(create: (_) => ArticleProvider()),
+        // Not a ChangeNotifier: the AI provider/model/key selection lives on
+        // SettingsProvider, which SettingsAiConfigSource reads fresh on every
+        // call, so AiService itself never needs to be rebuilt or notify.
+        Provider<AiService>(
+          create: (context) => AiService(
+            configSource: SettingsAiConfigSource(
+              context.read<SettingsProvider>(),
+            ),
+          ),
+        ),
       ],
       child: DynamicColorBuilder(
         builder: (lightDynamic, darkDynamic) {

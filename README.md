@@ -1,87 +1,59 @@
+# FreeAd — RSS News & Blog Reader
 
-# FreeAd - RSS News & Blog Reader
-
-A modern Flutter RSS reader application with Material 3 design and comprehensive reading features.
-
-> **v3 in progress.** The app is being rebuilt against `docs/V3_OVERHAUL_PLAN.md`:
-> a new design system, a three-tier article extractor, "Ask AI about this
-> article", automatic feed categorisation, and a real feeds/categories model.
-> Parts of this README still describe v2 behaviour and will be rewritten when
-> v3 lands. Building requires Flutter 3.32.8; see the plan for the toolchain
-> notes (`org.gradle.user.home` and `kotlin.incremental=false` in
-> `android/gradle.properties` are needed because the pub cache and the project
-> live on different drives).
->
-> Out of scope for v3 (possible later): background sync with WorkManager, push
-> notifications, text-to-speech, iOS polish, desktop builds.
+A Flutter RSS/Atom reader for Android with a robust in-app article extractor, an AI reading assistant, and automatic feed categorisation.
 
 ## Features
 
-### Reading Experience
-- **Article Reading Screen**: Dedicated screen for comfortable reading with:
-  - Clean, responsive layout with customizable font size
-  - Full-screen article content with text selection
-  - Article header with metadata (author, publication date)
-  - Article image display with fallback handling
-  - Smooth scrolling with scroll-to-top functionality
-  - **NEW: Full Article Loading**: Load complete article content from the original source
-    - Intelligent content extraction using readability algorithms
-    - Toggle between RSS summary and full article content
-    - In-app loading with progress indicators
-    - Fallback to browser if content extraction fails
+### Reading
+- **Three-tier full-article extraction**: sanitized RSS content when the feed already ships it, a Dart Readability-style HTTP extractor (JSON-LD, microdata, ~25 site-specific selectors, boilerplate scoring, lazy-image/srcset recovery) for the general web, and a headless-WebView + Mozilla Readability.js fallback for JS-rendered pages — selectable as Auto / Fast / Browser.
+- Full HTML rendering (headings, lists, blockquotes, tables, images) via `flutter_widget_from_html_core` — not a plain-text strip.
+- Font family (serif/sans), size and line-height controls; reading time estimate; scroll position remembered per article; text-selection toolbar (Highlight, Note, Ask AI, Copy, Share).
+- AI summaries (brief / detailed / bullet styles), saved per article.
 
-### Article Management
-- **Save Articles**: Bookmark articles for later reading
-- **Star Articles**: Mark important articles with star rating
-- **Read Status**: Automatic read/unread tracking
-- **Share Articles**: Copy article links or share content
-- **Full Article Caching**: Automatically cache full article content for offline reading
+### Ask AI about an article
+A streaming chat sheet grounded in the article's own text (RSS excerpt or extracted full content), with suggested prompts, "ask about this passage" from text selection, and a persisted per-article conversation. Works with OpenAI, Anthropic (Claude), Gemini, OpenRouter, Perplexity, NVIDIA NIM, or a local Ollama server — each with per-provider models fetched live from that provider's API (with a static fallback list if the fetch fails).
 
-### User Interface
-- **Material 3 Design**: Modern, adaptive design system
-- **Dark/Light Theme**: Automatic theme switching
-- **Responsive Layout**: Works on all screen sizes
-- **Smooth Animations**: Fluid transitions and interactions
+### Feeds & categories
+- Feed discovery from a plain site URL (`<link rel=alternate>` + common feed paths), not just a direct feed URL.
+- Automatic categorisation on add/import: an offline keyword/known-domain heuristic by default, or a one-shot AI pass that can also propose new categories — both previewed before applying.
+- Parallel feed refresh with per-feed status/errors, unread counts per feed and category, OPML import/export, starter packs for quick setup.
 
-### RSS Feed Support
-- **Multi-format Support**: RSS 2.0 and Atom feeds
-- **Auto-refresh**: Configurable automatic feed updates
-- **Category Organization**: Organize feeds by categories
-- **Error Handling**: Robust error handling for network issues
+### Design
+A "quiet instrument" look: near-black/off-white surfaces, hairline borders instead of shadows, one user-selectable accent colour (plus optional Material You dynamic colour on Android 12+), pure-black (AMOLED) mode, and the Space Grotesk / Inter / Literata type system — bundled, not fetched. Card / List / Compact article layouts with swipe actions and date grouping.
 
-## How to Use
+## Building
 
-1. **Browse Articles**: View all articles in the main feed
-2. **Read Articles**: Tap any article to open in the reading screen
-3. **Save for Later**: Use the bookmark icon to save articles
-4. **Star Important**: Use the star icon to mark important articles
-5. **Read Full Article**: 
-   - Tap "Read Full Article" to load the complete article content in the same screen
-   - Toggle between "Show Original" (RSS summary) and "Show Full Article" (complete content)
-   - Use "Open in Browser" if you prefer the original website experience
+Requires Flutter 3.32.8 (stable). If Flutter/the Android SDK aren't on `PATH`:
 
-## Technical Features
+```powershell
+$env:PATH = "D:\flutter\bin;D:\android-sdk\platform-tools;" + $env:PATH
+```
 
-- **Local Database**: SQLite for offline article storage
-- **Network Caching**: Efficient image and data caching
-- **State Management**: Provider pattern for reactive UI
-- **URL Handling**: Direct browser integration for external links
-- **HTML Parsing**: Clean article content extraction using readability algorithms
-- **Full Article Processing**: 
-  - Intelligent content extraction removes ads, navigation, and clutter
-  - Mozilla Readability-inspired algorithm for clean text extraction
-  - Automatic HTML entity decoding and text formatting
-  - Fallback mechanisms for various website structures
+On Windows, if the Gradle build fails with `Unable to establish loopback connection` (happens when the user's TEMP directory resolves to an 8.3 short path), set:
 
-## Getting Started
+```powershell
+$env:JAVA_TOOL_OPTIONS = "-Djdk.net.unixdomain.tmpdir=C:/gradle-home/tmp"
+```
 
-This project is a starting point for a Flutter application.
+Then:
 
-A few resources to get you started if this is your first Flutter project:
+```powershell
+flutter pub get
+flutter build apk --release
+```
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+`android/gradle.properties` also pins `kotlin.incremental=false` and a custom `org.gradle.user.home` — needed when the pub cache and the project checkout live on different drives. See `docs/V3_OVERHAUL_PLAN.md` for the full toolchain notes and architecture.
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Project layout
+
+- `lib/services/rss/` — feed parsing, date parsing, feed discovery
+- `lib/services/extraction/` — the three-tier article extractor
+- `lib/services/ai/` — provider adapters, summarization, categorisation, chat
+- `lib/theme/`, `lib/widgets/ui/` — the shared design system
+- `lib/screens/reader/`, `lib/screens/home/`, `lib/screens/feeds/` — the screens
+- `docs/V3_OVERHAUL_PLAN.md` — the design/architecture record for the v3 rewrite
+- `docs/CHANGELOG.md` — release notes
+
+## Not in scope (yet)
+
+Background sync (WorkManager), push notifications, text-to-speech, iOS polish, desktop builds.

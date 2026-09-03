@@ -107,12 +107,7 @@ class RssService {
   }) async {
     AppLog.d('Fetching feed $url');
     final body = await fetchBody(url);
-    return parseFeedXml(
-      body,
-      feedId,
-      feedUrl: url,
-      categoryId: categoryId,
-    );
+    return parseFeedXml(body, feedId, feedUrl: url, categoryId: categoryId);
   }
 
   /// Fetches [url] and returns the feed's own metadata.
@@ -261,9 +256,11 @@ class RssService {
           _text(imageElement, 'url') ??
           imageElement.getAttribute('rdf:resource');
     }
-    imageUrl ??= _prefixedChild(channel, 'itunes', 'image')?.getAttribute(
-      'href',
-    );
+    imageUrl ??= _prefixedChild(
+      channel,
+      'itunes',
+      'image',
+    )?.getAttribute('href');
     imageUrl ??= _text(channel, 'logo');
     imageUrl ??= _text(channel, 'icon');
     imageUrl = _resolve(imageUrl, base);
@@ -561,8 +558,11 @@ class RssService {
     }
     if (best != null) return _resolve(best, base);
 
-    final thumbnail =
-        _prefixedChild(item, 'media', 'thumbnail')?.getAttribute('url');
+    final thumbnail = _prefixedChild(
+      item,
+      'media',
+      'thumbnail',
+    )?.getAttribute('url');
     if (thumbnail != null && thumbnail.isNotEmpty) {
       return _resolve(thumbnail, base);
     }
@@ -577,7 +577,11 @@ class RssService {
       }
     }
 
-    final itunes = _prefixedChild(item, 'itunes', 'image')?.getAttribute('href');
+    final itunes = _prefixedChild(
+      item,
+      'itunes',
+      'image',
+    )?.getAttribute('href');
     if (itunes != null && itunes.isNotEmpty) return _resolve(itunes, base);
 
     return _firstContentImage(contentHtml);
@@ -656,9 +660,9 @@ class RssService {
     if (!raw.contains('<') && !raw.contains('&')) {
       return raw.replaceAll(RegExp(r'\s+'), ' ').trim();
     }
-    return HtmlSanitizer.toPlainText(raw)
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim();
+    return HtmlSanitizer.toPlainText(
+      raw,
+    ).replaceAll(RegExp(r'\s+'), ' ').trim();
   }
 
   static String _escape(String text) => text
@@ -758,11 +762,7 @@ class RssService {
     return value.isEmpty ? null : value;
   }
 
-  static String? _prefixedText(
-    XmlElement parent,
-    String prefix,
-    String name,
-  ) {
+  static String? _prefixedText(XmlElement parent, String prefix, String name) {
     final element = _prefixedChild(parent, prefix, name);
     if (element == null) return null;
     final value = element.innerText.trim();

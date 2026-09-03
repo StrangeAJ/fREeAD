@@ -181,7 +181,11 @@ class ArticleExtractor {
     try {
       final page = await fetcher.fetch(url);
       _lastAmpUrl = page.ampUrl;
-      final result = _readability.parse(page.html, page.finalUrl, source: source);
+      final result = _readability.parse(
+        page.html,
+        page.finalUrl,
+        source: source,
+      );
       return _HttpOutcome(result: result);
     } on FetchException catch (e) {
       return _HttpOutcome(error: e.userMessage, statusCode: e.statusCode);
