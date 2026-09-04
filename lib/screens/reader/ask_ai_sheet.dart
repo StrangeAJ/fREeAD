@@ -5,9 +5,12 @@ import 'package:markdown/markdown.dart' as md;
 import 'package:provider/provider.dart';
 
 import '../../models/chat_message.dart';
+import '../../models/saved_prompt.dart';
 import '../../providers/ai_chat_provider.dart';
+import '../../providers/settings_provider.dart';
 import '../../theme/app_tokens.dart';
 import '../../widgets/ui/ui.dart';
+import '../settings/ai_settings_screens.dart';
 
 /// Opens the "Ask AI about this article" sheet.
 ///
@@ -178,7 +181,18 @@ class _AskAiSheetState extends State<AskAiSheet> {
     );
   }
 
+  /// Saved prompts from Settings (empty when the provider is unavailable,
+  /// e.g. in widget tests that only supply a chat).
+  List<SavedPrompt> _savedPrompts() {
+    try {
+      return context.watch<SettingsProvider>().savedPrompts;
+    } catch (_) {
+      return const <SavedPrompt>[];
+    }
+  }
+
   Widget _suggestions(AppTokens t, AiChatProvider chat) {
+    final List<SavedPrompt> saved = _savedPrompts();
     return ListView(
       controller: _scrollController,
       children: <Widget>[
@@ -202,6 +216,42 @@ class _AskAiSheetState extends State<AskAiSheet> {
               PillChip(label: prompt, onTap: () => _send(prompt)),
           ],
         ),
+        if (saved.isNotEmpty) ...<Widget>[
+          SizedBox(height: t.spaceXl),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              Text(
+                'Your prompts',
+                style: Theme.of(
+                  context,
+                ).textTheme.labelSmall?.copyWith(color: t.textTertiary),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const AiSavedPromptsScreen(),
+                  ),
+                ),
+                child: const Text('Manage'),
+              ),
+            ],
+          ),
+          SizedBox(height: t.spaceS),
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: t.spaceS,
+            runSpacing: t.spaceS,
+            children: <Widget>[
+              for (final SavedPrompt prompt in saved)
+                PillChip(
+                  label: prompt.title,
+                  icon: Icons.bookmark_outline_rounded,
+                  onTap: () => _send(prompt.prompt),
+                ),
+            ],
+          ),
+        ],
       ],
     );
   }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../models/saved_prompt.dart';
 import '../../providers/settings_provider.dart';
 import '../../services/ai/ai_models.dart';
 import '../../services/ai/ai_service.dart';
@@ -596,6 +597,361 @@ class _ModelPickerState extends State<_ModelPicker> {
                 ),
         ),
       ],
+    );
+  }
+}
+
+// =============================================================================
+// Custom instructions
+// =============================================================================
+
+/// Free-text instructions appended to every AI system prompt (Ask AI chats
+/// and summaries), e.g. "Always reply in French" or "Explain like I'm five".
+class AiCustomInstructionsScreen extends StatefulWidget {
+  const AiCustomInstructionsScreen({super.key});
+
+  @override
+  State<AiCustomInstructionsScreen> createState() =>
+      _AiCustomInstructionsScreenState();
+}
+
+class _AiCustomInstructionsScreenState
+    extends State<AiCustomInstructionsScreen> {
+  late final TextEditingController _controller = TextEditingController(
+    text: context.read<SettingsProvider>().customInstructions,
+  );
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    await context.read<SettingsProvider>().setCustomInstructions(
+      _controller.text,
+    );
+    if (!mounted) return;
+    AppSnackBar.success(context, 'Instructions saved');
+    Navigator.of(context).pop();
+  }
+
+  Future<void> _clear() async {
+    _controller.clear();
+    await context.read<SettingsProvider>().setCustomInstructions('');
+    if (!mounted) return;
+    AppSnackBar.success(context, 'Instructions cleared');
+    Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final AppTokens t = context.tokens;
+
+    return AppScaffold(
+      appBar: const GlassAppBar(title: 'Custom instructions'),
+      body: ListView(
+        padding: EdgeInsets.fromLTRB(
+          t.spaceL,
+          t.spaceS,
+          t.spaceL,
+          t.space3xl * 2,
+        ),
+        children: <Widget>[
+          Text(
+            'Appended to every Ask AI chat and summary, after the built-in '
+            'prompt. Leave it empty to use the defaults.',
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: t.textTertiary),
+          ),
+          SizedBox(height: t.spaceL),
+          TextField(
+            controller: _controller,
+            minLines: 5,
+            maxLines: 10,
+            maxLength: SettingsProvider.maxCustomInstructionsChars,
+            textCapitalization: TextCapitalization.sentences,
+            decoration: const InputDecoration(
+              hintText: 'e.g. Always reply in French. Keep answers short.',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          SizedBox(height: t.spaceL),
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _clear,
+                  icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                  label: const Text('Clear'),
+                ),
+              ),
+              SizedBox(width: t.spaceM),
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: _save,
+                  icon: const Icon(Icons.check_rounded, size: 18),
+                  label: const Text('Save'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// Saved prompts
+// =============================================================================
+
+/// The user's own Ask AI prompt library: add, edit, delete.
+class AiSavedPromptsScreen extends StatelessWidget {
+  const AiSavedPromptsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final AppTokens t = context.tokens;
+    final SettingsProvider settings = context.watch<SettingsProvider>();
+    final List<SavedPrompt> prompts = settings.savedPrompts;
+
+    return AppScaffold(
+      appBar: const GlassAppBar(title: 'Saved prompts'),
+      floatingActionButton: FloatingActionButton(
+        tooltip: 'Add prompt',
+        onPressed: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(builder: (_) => const AiPromptEditorScreen()),
+        ),
+        child: const Icon(Icons.add_rounded),
+      ),
+      body: prompts.isEmpty
+          ? EmptyState(
+              icon: Icons.bookmark_outline_rounded,
+              title: 'No saved prompts',
+              message:
+                  'Save the questions you ask often and send them from the '
+                  'Ask AI sheet with one tap.',
+              primaryActionLabel: 'Add prompt',
+              primaryActionIcon: Icons.add_rounded,
+              onPrimaryAction: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const AiPromptEditorScreen(),
+                ),
+              ),
+            )
+          : ListView.builder(
+              padding: EdgeInsets.fromLTRB(
+                t.spaceL,
+                t.spaceS,
+                t.spaceL,
+                t.space3xl * 3,
+              ),
+              itemCount: prompts.length,
+              itemBuilder: (BuildContext context, int index) {
+                final SavedPrompt prompt = prompts[index];
+                return _SavedPromptTile(
+                  key: ValueKey<String>('saved-prompt-${prompt.id}'),
+                  prompt: prompt,
+                );
+              },
+            ),
+    );
+  }
+}
+
+class _SavedPromptTile extends StatelessWidget {
+  const _SavedPromptTile({super.key, required this.prompt});
+
+  final SavedPrompt prompt;
+
+  @override
+  Widget build(BuildContext context) {
+    final AppTokens t = context.tokens;
+
+    return SurfaceCard(
+      margin: EdgeInsets.only(bottom: t.spaceM),
+      padding: EdgeInsets.all(t.spaceM),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: Text(
+                  prompt.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+              ),
+              IconButton(
+                tooltip: 'Edit',
+                visualDensity: VisualDensity.compact,
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => AiPromptEditorScreen(existing: prompt),
+                  ),
+                ),
+                icon: const Icon(Icons.edit_outlined, size: 20),
+                color: t.textSecondary,
+              ),
+              IconButton(
+                tooltip: 'Delete',
+                visualDensity: VisualDensity.compact,
+                onPressed: () => _confirmDelete(context),
+                icon: const Icon(Icons.delete_outline_rounded, size: 20),
+                color: t.danger,
+              ),
+            ],
+          ),
+          SizedBox(height: t.spaceXs),
+          Text(
+            prompt.prompt,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: t.textSecondary),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _confirmDelete(BuildContext context) async {
+    final bool confirmed = await showAppConfirm(
+      context,
+      'Delete this prompt?',
+      '"${prompt.title}" will be removed from your library.',
+      confirmLabel: 'Delete',
+      destructive: true,
+    );
+    if (!confirmed || !context.mounted) return;
+    await context.read<SettingsProvider>().deleteSavedPrompt(prompt.id);
+    if (!context.mounted) return;
+    AppSnackBar.success(context, 'Prompt deleted');
+  }
+}
+
+/// Add- or edit-screen for one saved prompt.
+class AiPromptEditorScreen extends StatefulWidget {
+  const AiPromptEditorScreen({super.key, this.existing});
+
+  /// Non-null when editing; null when adding.
+  final SavedPrompt? existing;
+
+  @override
+  State<AiPromptEditorScreen> createState() => _AiPromptEditorScreenState();
+}
+
+class _AiPromptEditorScreenState extends State<AiPromptEditorScreen> {
+  late final TextEditingController _titleController = TextEditingController(
+    text: widget.existing?.title ?? '',
+  );
+  late final TextEditingController _promptController = TextEditingController(
+    text: widget.existing?.prompt ?? '',
+  );
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _promptController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (_saving) return;
+    final String title = _titleController.text.trim();
+    final String prompt = _promptController.text.trim();
+    if (title.isEmpty || prompt.isEmpty) {
+      AppSnackBar.error(context, 'Give the prompt a title and some text.');
+      return;
+    }
+    setState(() => _saving = true);
+    final SettingsProvider settings = context.read<SettingsProvider>();
+    if (widget.existing == null) {
+      final SavedPrompt? created = await settings.addSavedPrompt(
+        title: title,
+        prompt: prompt,
+      );
+      if (!mounted) return;
+      if (created == null) {
+        setState(() => _saving = false);
+        AppSnackBar.error(
+          context,
+          'The library is full (max ${SettingsProvider.maxSavedPrompts}). '
+          'Delete one first.',
+        );
+        return;
+      }
+      AppSnackBar.success(context, 'Prompt saved');
+    } else {
+      await settings.updateSavedPrompt(
+        widget.existing!.copyWith(title: title, prompt: prompt),
+      );
+      if (!mounted) return;
+      AppSnackBar.success(context, 'Prompt updated');
+    }
+    if (mounted) Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final AppTokens t = context.tokens;
+    final bool editing = widget.existing != null;
+
+    return AppScaffold(
+      appBar: GlassAppBar(title: editing ? 'Edit prompt' : 'New prompt'),
+      body: ListView(
+        padding: EdgeInsets.fromLTRB(
+          t.spaceL,
+          t.spaceS,
+          t.spaceL,
+          t.space3xl * 2,
+        ),
+        children: <Widget>[
+          TextField(
+            controller: _titleController,
+            maxLength: SettingsProvider.maxPromptTitleChars,
+            textCapitalization: TextCapitalization.words,
+            decoration: const InputDecoration(
+              labelText: 'Title',
+              hintText: 'e.g. Explain simply',
+            ),
+          ),
+          SizedBox(height: t.spaceL),
+          TextField(
+            controller: _promptController,
+            minLines: 5,
+            maxLines: 10,
+            maxLength: SettingsProvider.maxPromptChars,
+            textCapitalization: TextCapitalization.sentences,
+            decoration: const InputDecoration(
+              labelText: 'Prompt',
+              hintText: 'e.g. Explain the key ideas like I am 12.',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          SizedBox(height: t.spaceL),
+          FilledButton.icon(
+            onPressed: _saving ? null : _save,
+            icon: _saving
+                ? SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: t.onAccent,
+                    ),
+                  )
+                : const Icon(Icons.check_rounded, size: 18),
+            label: Text(editing ? 'Save changes' : 'Save prompt'),
+          ),
+        ],
+      ),
     );
   }
 }

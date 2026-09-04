@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show SelectedContent;
@@ -32,12 +30,11 @@ import 'summary_card.dart';
 /// The reading screen.
 ///
 /// Layout notes (this is where the v2 "title hidden behind the toolbar" bug
-/// lived): the scaffold deliberately extends the body behind the glass app bar,
-/// so **every** sliver below the bar has to pay for that itself. With a hero
-/// image the image is the thing that sits under the bar, and its height is
-/// clamped to at least `statusBar + kToolbarHeight + progressBar + spaceXl`.
-/// Without one, a spacer sliver of exactly that height opens the scroll view.
-/// Either way the title starts below the toolbar.
+/// lived): the scaffold deliberately extends the body behind the glass app bar
+/// so scrolled content blurs underneath it - but at rest nothing may sit under
+/// the bar. A spacer sliver of `statusBar + kToolbarHeight + progressBar +
+/// spaceXl` always opens the scroll view, and the hero image (if any) starts
+/// below it. The hero only slides under the bar once the user scrolls.
 class ArticleReadingScreen extends StatefulWidget {
   const ArticleReadingScreen({super.key, required this.article});
 
@@ -161,7 +158,11 @@ class _ArticleReadingScreenState extends State<ArticleReadingScreen> {
       if (!stale) return existing;
       existing.dispose();
     }
-    return _chat = AiChatProvider(article: article, ai: _ai);
+    return _chat = AiChatProvider(
+      article: article,
+      ai: _ai,
+      customInstructions: context.read<SettingsProvider>().customInstructions,
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -564,19 +565,18 @@ class _ArticleReadingScreenState extends State<ArticleReadingScreen> {
           controller: _scroll,
           slivers: <Widget>[
             // --- top spacing / hero ------------------------------------
+            // The spacer always comes first: at rest the bar sits over plain
+            // background, never over the image or the title. The hero (and
+            // everything else) only slides underneath the glass once the
+            // user scrolls.
+            SliverToBoxAdapter(child: SizedBox(height: contentTop + t.spaceXl)),
             if (hasHero)
               SliverToBoxAdapter(
                 child: _HeroImage(
                   articleId: article.id,
                   url: heroUrl,
-                  // Never shorter than the app bar: the title must not end
-                  // up underneath the toolbar on narrow screens.
-                  height: math.max(width * 9 / 16, contentTop + t.spaceXl),
+                  height: width * 9 / 16,
                 ),
-              )
-            else
-              SliverToBoxAdapter(
-                child: SizedBox(height: contentTop + t.spaceXl),
               ),
 
             SliverPadding(

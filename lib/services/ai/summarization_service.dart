@@ -41,7 +41,12 @@ class SummarizationService {
   Future<String> summarize(String text) async {
     try {
       final style = await _summaryStyle();
-      return await _ai.summarize(text, style: style);
+      final customInstructions = await _customInstructions();
+      return await _ai.summarize(
+        text,
+        style: style,
+        customInstructions: customInstructions,
+      );
     } on AiException catch (e) {
       return e.userMessage;
     } catch (e, st) {
@@ -72,6 +77,18 @@ class SummarizationService {
     } catch (e) {
       AppLog.w('Could not read summary style', e);
       return SummaryStyle.brief;
+    }
+  }
+
+  Future<String> _customInstructions() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(SettingsProvider.customInstructionsKey);
+      if (raw == null || raw.trim().isEmpty) return '';
+      return raw.trim();
+    } catch (e) {
+      AppLog.w('Could not read custom instructions', e);
+      return '';
     }
   }
 

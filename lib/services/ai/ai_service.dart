@@ -249,15 +249,22 @@ class AiService {
   }
 
   /// Summarises [text] in the requested [style].
+  ///
+  /// [customInstructions] is the user's free-text addition, appended to the
+  /// style prompt (see [withCustomInstructions]).
   Future<String> summarize(
     String text, {
     SummaryStyle style = SummaryStyle.brief,
+    String? customInstructions,
     CancelToken? cancelToken,
   }) async {
     final input = truncateForModel(text);
     return chat(
       [AiMessage.user(input)],
-      system: summaryStyleInstruction(style),
+      system: withCustomInstructions(
+        summaryStyleInstruction(style),
+        customInstructions,
+      ),
       maxTokens: AiLimits.taskMaxTokens,
       cancelToken: cancelToken,
     );

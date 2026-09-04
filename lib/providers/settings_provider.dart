@@ -1,8 +1,11 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/app_settings.dart';
+import '../models/saved_prompt.dart';
 import '../theme/accent.dart';
 import '../utils/app_logger.dart';
 
@@ -41,6 +44,8 @@ class SettingsProvider with ChangeNotifier {
   static const String summarizationProviderKey = 'summarization_provider';
   static const String autoSaveSummariesKey = 'auto_save_summaries';
   static const String summaryStyleKey = 'summary_style';
+  static const String customInstructionsKey = 'custom_instructions';
+  static const String savedPromptsKey = 'saved_prompts';
 
   static const String accentKey = 'accent';
   static const String dynamicColorKey = 'use_dynamic_color';
@@ -108,6 +113,14 @@ class SettingsProvider with ChangeNotifier {
   String _summarizationProvider = providerGemini;
   bool _autoSaveSummaries = true;
   SummaryStyle _summaryStyle = SummaryStyle.brief;
+  String _customInstructions = '';
+  List<SavedPrompt> _savedPrompts = <SavedPrompt>[];
+
+  /// Hard caps so one runaway field cannot bloat preferences or model input.
+  static const int maxCustomInstructionsChars = 2000;
+  static const int maxSavedPrompts = 50;
+  static const int maxPromptTitleChars = 80;
+  static const int maxPromptChars = 2000;
 
   String _openaiApiKey = '';
   String _claudeApiKey = '';
@@ -150,6 +163,13 @@ class SettingsProvider with ChangeNotifier {
   String get summarizationProvider => _summarizationProvider;
   bool get autoSaveSummaries => _autoSaveSummaries;
   SummaryStyle get summaryStyle => _summaryStyle;
+
+  /// Free-text instructions appended to every AI system prompt (Ask AI chats
+  /// and summaries). Empty means "no extra instructions".
+  String get customInstructions => _customInstructions;
+
+  /// User-saved Ask AI prompts, oldest first.
+  List<SavedPrompt> get savedPrompts => List.unmodifiable(_savedPrompts);
 
   String get openaiApiKey => _openaiApiKey;
   String get claudeApiKey => _claudeApiKey;
@@ -232,6 +252,14 @@ class SettingsProvider with ChangeNotifier {
       prefs?.getString(summaryStyleKey),
       SummaryStyle.brief,
     );
+    _customInstructions = prefs?.getString(customInstructionsKey)?.trim() ?? '';
+    if (_customInstructions.length > maxCustomInstructionsChars) {
+      _customInstructions = _customInstructions.substring(
+        0,
+        maxCustomInstructionsChars,
+      );
+    }
+    _savedPrompts = _decodeSavedPrompts(prefs?.getString(savedPromptsKey));
 
     _openaiApiKey = await _loadOrMigrateSecureKey(openaiKey);
     _claudeApiKey = await _loadOrMigrateSecureKey(claudeKey);
@@ -416,6 +444,127 @@ class SettingsProvider with ChangeNotifier {
     _summaryStyle = style;
     await _prefs?.setString(summaryStyleKey, style.name);
     notifyListeners();
+  }
+
+  /// Saves the free-text instructions appended to AI system prompts.
+  Future<void> setCustomInstructions(String value) async {
+    var trimmed = value.trim();
+    if (trimmed.length > maxCustomInstructionsChars) {
+      trimmed = trimmed.substring(0, maxCustomInstructionsChars);
+    }
+    _customInstructions = trimmed;
+    final prefs = _prefs;
+    if (prefs != null) {
+      if (trimmed.isEmpty) {
+        await prefs.remove(customInstructionsKey);
+      } else {
+        await prefs.setString(customInstructionsKey, trimmed);
+      }
+    }
+    notifyListeners();
+  }
+
+  /// Saves a new Ask AI prompt; returns null when the library is full.
+  Future<SavedPrompt?> addSavedPrompt({
+    required String title,
+    required String prompt,
+  }) async {
+    final cleanTitle = title.trim();
+    final cleanPrompt = prompt.trim();
+    if (cleanTitle.isEmpty || cleanPrompt.isEmpty) return null;
+    if (_savedPrompts.length >= maxSavedPrompts) return null;
+    final entry = SavedPrompt(
+      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      title: cleanTitle.length > maxPromptTitleChars
+          ? cleanTitle.substring(0, maxPromptTitleChars)
+          : cleanTitle,
+      prompt: cleanPrompt.length > maxPromptChars
+          ? cleanPrompt.substring(0, maxPromptChars)
+          : cleanPrompt,
+      createdAt: DateTime.now(),
+    );
+    _savedPrompts = <SavedPrompt>[..._savedPrompts, entry];
+    await _persistSavedPrompts();
+    notifyListeners();
+    return entry;
+  }
+
+  /// Updates the title/prompt of an existing saved prompt. No-op when the id
+  /// is unknown or the new values are blank.
+  Future<void> updateSavedPrompt(SavedPrompt updated) async {
+    final index = _savedPrompts.indexWhere((p) => p.id == updated.id);
+    if (index == -1) return;
+    final cleanTitle = updated.title.trim();
+    final cleanPrompt = updated.prompt.trim();
+    if (cleanTitle.isEmpty || cleanPrompt.isEmpty) return;
+    final entry = SavedPrompt(
+      id: updated.id,
+      title: cleanTitle.length > maxPromptTitleChars
+          ? cleanTitle.substring(0, maxPromptTitleChars)
+          : cleanTitle,
+      prompt: cleanPrompt.length > maxPromptChars
+          ? cleanPrompt.substring(0, maxPromptChars)
+          : cleanPrompt,
+      createdAt: _savedPrompts[index].createdAt,
+    );
+    _savedPrompts = <SavedPrompt>[
+      ..._savedPrompts.sublist(0, index),
+      entry,
+      ..._savedPrompts.sublist(index + 1),
+    ];
+    await _persistSavedPrompts();
+    notifyListeners();
+  }
+
+  /// Deletes a saved prompt. No-op when the id is unknown.
+  Future<void> deleteSavedPrompt(String id) async {
+    if (!_savedPrompts.any((p) => p.id == id)) return;
+    _savedPrompts = _savedPrompts.where((p) => p.id != id).toList();
+    await _persistSavedPrompts();
+    notifyListeners();
+  }
+
+  Future<void> _persistSavedPrompts() async {
+    final prefs = _prefs;
+    if (prefs == null) return;
+    if (_savedPrompts.isEmpty) {
+      await prefs.remove(savedPromptsKey);
+      return;
+    }
+    try {
+      await prefs.setString(
+        savedPromptsKey,
+        jsonEncode([for (final p in _savedPrompts) p.toJson()]),
+      );
+    } catch (e) {
+      AppLog.w('Could not persist saved prompts', e);
+    }
+  }
+
+  static List<SavedPrompt> _decodeSavedPrompts(String? raw) {
+    if (raw == null || raw.trim().isEmpty) return <SavedPrompt>[];
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return <SavedPrompt>[];
+      final seen = <String>{};
+      final result = <SavedPrompt>[];
+      for (final entry in decoded) {
+        if (entry is! Map) continue;
+        final prompt = SavedPrompt.fromJson(Map<String, dynamic>.from(entry));
+        if (prompt.id.isEmpty ||
+            prompt.title.trim().isEmpty ||
+            prompt.prompt.trim().isEmpty) {
+          continue;
+        }
+        if (!seen.add(prompt.id)) continue;
+        result.add(prompt);
+        if (result.length >= maxSavedPrompts) break;
+      }
+      return result;
+    } catch (e) {
+      AppLog.w('Could not decode saved prompts', e);
+      return <SavedPrompt>[];
+    }
   }
 
   Future<void> setOpenaiApiKey(String key) =>
@@ -606,6 +755,8 @@ class SettingsProvider with ChangeNotifier {
         summarizationProviderKey,
         autoSaveSummariesKey,
         summaryStyleKey,
+        customInstructionsKey,
+        savedPromptsKey,
         openaiModelKey,
         claudeModelKey,
         geminiModelKey,

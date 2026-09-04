@@ -17,14 +17,20 @@ class AiChatProvider extends ChangeNotifier {
     required this.article,
     required AiService ai,
     ArticleChatRepository? repo,
+    String? customInstructions,
   }) : _ai = ai,
-       _repo = repo ?? ArticleChatRepository();
+       _repo = repo ?? ArticleChatRepository(),
+       _customInstructions = customInstructions?.trim() ?? '';
 
   /// The article the conversation is about.
   final Article article;
 
   final AiService _ai;
   final ArticleChatRepository _repo;
+
+  /// Free-text instructions appended to the system prompt. Read once at
+  /// construction (a settings change applies to the next chat session).
+  final String _customInstructions;
 
   final List<ChatMessage> _messages = <ChatMessage>[];
   bool _isStreaming = false;
@@ -91,9 +97,12 @@ class AiChatProvider extends ChangeNotifier {
   String get systemPrompt {
     final buffer = StringBuffer()
       ..writeln(
-        'You are a reading assistant inside an RSS reader. Answer using the '
-        'article below; if the answer is not in the article say so. Be '
-        'concise. Use Markdown.',
+        withCustomInstructions(
+          'You are a reading assistant inside an RSS reader. Answer using '
+          'the article below; if the answer is not in the article say so. '
+          'Be concise. Use Markdown.',
+          _customInstructions,
+        ),
       )
       ..writeln()
       ..writeln('Title: ${article.title}');

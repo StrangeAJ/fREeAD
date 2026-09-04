@@ -78,7 +78,14 @@ class _SummaryCardState extends State<SummaryCard> {
     });
 
     try {
-      final String result = await widget.ai.summarize(text, style: wanted);
+      final String customInstructions = context
+          .read<SettingsProvider>()
+          .customInstructions;
+      final String result = await widget.ai.summarize(
+        text,
+        style: wanted,
+        customInstructions: customInstructions,
+      );
       if (!mounted) return;
       setState(() {
         _summary = result.trim();

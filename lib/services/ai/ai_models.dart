@@ -211,6 +211,16 @@ String summaryStyleInstruction(SummaryStyle style) {
   }
 }
 
+/// Appends the user's free-text instructions to an AI system prompt.
+///
+/// Returns [base] unchanged when [custom] is null or blank, so default
+/// behaviour (and its tests) never shifts for users without instructions.
+String withCustomInstructions(String base, String? custom) {
+  final extra = custom?.trim() ?? '';
+  if (extra.isEmpty) return base;
+  return '$base\n\nFollow these additional user instructions:\n$extra';
+}
+
 /// Clips [text] to [AiLimits.maxInputChars], appending a note when it does.
 String truncateForModel(String text, {int? maxChars}) {
   final limit = maxChars ?? AiLimits.maxInputChars;

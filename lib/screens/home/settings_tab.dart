@@ -755,6 +755,30 @@ class _AiSection extends StatelessWidget {
             MaterialPageRoute<void>(builder: (_) => const AiModelsScreen()),
           ),
         ),
+        _NavRow(
+          title: 'Custom instructions',
+          icon: Icons.tune_rounded,
+          subtitle: settings.customInstructions.isEmpty
+              ? 'None - using the built-in prompts'
+              : settings.customInstructions,
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => const AiCustomInstructionsScreen(),
+            ),
+          ),
+        ),
+        _NavRow(
+          title: 'Saved prompts',
+          icon: Icons.bookmark_outline_rounded,
+          subtitle: settings.savedPrompts.isEmpty
+              ? 'Save the questions you ask often'
+              : '${settings.savedPrompts.length} saved',
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => const AiSavedPromptsScreen(),
+            ),
+          ),
+        ),
         Divider(
           height: 1,
           color: t.hairline,

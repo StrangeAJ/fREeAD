@@ -17,6 +17,8 @@ A ground-up rebuild of the reading experience, article extraction, and design sy
 ### Added
 - Three-tier article extractor with an engine setting (Auto / Fast / Browser).
 - Ask AI about an article: streaming chat grounded in the article text, suggested prompts, ask-from-selection, persisted per-article conversation. Seven providers, each with live model fetching.
+- Custom AI instructions (Settings → AI): free text appended to every Ask AI and summary system prompt.
+- Saved prompt library (Settings → AI → Saved prompts): keep your own Ask AI prompts and send them from the chat sheet with one tap.
 - Automatic feed categorisation (offline heuristic + optional AI pass) with a preview before applying.
 - Feed discovery from a plain site URL, parallel refresh with per-feed status, unread counts, starter packs, search screen.
 - New design system: accent colours, dynamic colour, pure-black mode, bundled Space Grotesk/Inter/Literata fonts, a full `widgets/ui/` component library.

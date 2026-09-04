@@ -236,6 +236,24 @@ void main() {
       expect(tester.getTopLeft(title).dy, greaterThanOrEqualTo(minimumTop));
     });
 
+    testWidgets('the hero image starts below the app bar at rest', (
+      WidgetTester tester,
+    ) async {
+      await settings.setShowImages(true);
+      await pumpReader(
+        tester,
+        dark: true,
+        article: buildArticle(imageUrl: 'https://example.com/hero.jpg'),
+      );
+
+      // The hero may slide under the glass bar while scrolling, but at rest
+      // the bar must sit over plain background - never over the image.
+      final Finder hero = find.byType(Hero);
+      expect(hero, findsOneWidget);
+      const double barBottom = 24 + kToolbarHeight + 2;
+      expect(tester.getTopLeft(hero).dy, greaterThanOrEqualTo(barBottom));
+    });
+
     testWidgets('renders headings, list items and quotes from the RSS HTML', (
       WidgetTester tester,
     ) async {
