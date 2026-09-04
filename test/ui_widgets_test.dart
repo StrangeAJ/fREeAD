@@ -117,6 +117,50 @@ void main() {
       expect(plain.title, 'x');
       await tester.pump();
     });
+
+    testWidgets('body starts below the glass app bar, never under it', (
+      tester,
+    ) async {
+      tester.view.devicePixelRatio = 1.0;
+      tester.view.physicalSize = phone;
+      addTearDown(tester.view.reset);
+
+      // A status bar the spacer math must clear: the regression this guards
+      // is list screens whose first row rendered behind the glass bar.
+      const EdgeInsets insets = EdgeInsets.only(top: 24, bottom: 16);
+      for (final bool dark in <bool>[false, true]) {
+        await tester.pumpWidget(
+          MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: themeFor(dark),
+            home: MediaQuery(
+              data: const MediaQueryData(size: phone, padding: insets),
+              child: const AppScaffold(
+                appBar: GlassAppBar(title: 'FreeAd', showBack: false),
+                body: SizedBox(
+                  key: Key('body-marker'),
+                  height: 40,
+                  child: Text('first row'),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pump(const Duration(milliseconds: 100));
+
+        final double barBottom = tester.getBottomRight(find.byType(AppBar)).dy;
+        final double bodyTop = tester
+            .getTopLeft(find.byKey(const Key('body-marker')))
+            .dy;
+        expect(
+          bodyTop,
+          greaterThanOrEqualTo(barBottom),
+          reason: dark
+              ? 'dark: body under app bar'
+              : 'light: body under app bar',
+        );
+      }
+    });
   });
 
   group('surfaces and labels', () {

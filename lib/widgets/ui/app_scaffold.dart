@@ -4,16 +4,19 @@ import '../../theme/app_tokens.dart';
 
 /// The scaffold every screen uses.
 ///
-/// Defaults to edge-to-edge: the body extends behind the (glass) app bar and
-/// bottom bar so content blurs underneath them. Add the app bar height to your
-/// scroll padding, or pass `extendBodyBehindAppBar: false` for simple screens.
+/// The body starts below the (glass) app bar and extends behind the bottom
+/// bar, whose translucency is preserved via [extendBody]. Only screens that
+/// deliberately paint content underneath the app bar (the reader, with its
+/// hero image under the glass) may pass `extendBodyBehindAppBar: true` - and
+/// then they must offset their own scroll padding by the bar height, or the
+/// bar covers the first rows.
 ///
 /// ```dart
 /// AppScaffold(
 ///   appBar: const GlassAppBar(title: 'Settings'),
 ///   body: ListView(...),
 /// )
-/// ```
+/// */
 class AppScaffold extends StatelessWidget {
   const AppScaffold({
     super.key,
@@ -25,7 +28,7 @@ class AppScaffold extends StatelessWidget {
     this.drawer,
     this.backgroundColor,
     this.extendBody = true,
-    this.extendBodyBehindAppBar = true,
+    this.extendBodyBehindAppBar = false,
     this.resizeToAvoidBottomInset,
     this.safeAreaTop = false,
     this.safeAreaBottom = false,

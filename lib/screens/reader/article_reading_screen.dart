@@ -509,7 +509,11 @@ class _ArticleReadingScreenState extends State<ArticleReadingScreen> {
     final String? heroUrl = settings.showImages ? article.imageUrl : null;
     final bool hasHero = heroUrl != null && heroUrl.trim().isNotEmpty;
 
+    // Keeps the hero image sliding under the glass bar. The slivers below
+    // pay for that height themselves (spacer / hero min-height), so the
+    // title never starts underneath the toolbar.
     return AppScaffold(
+      extendBodyBehindAppBar: true,
       appBar: GlassAppBar(
         titleWidget: _appBarTitle(article),
         bottom: ReadingProgressBar(
