@@ -6,6 +6,7 @@ import '../../models/category.dart';
 import '../../models/rss_feed.dart';
 import '../../providers/article_provider.dart';
 import '../../providers/feed_provider.dart';
+import '../../providers/settings_provider.dart';
 import '../../theme/app_tokens.dart';
 import '../../utils/text_utils.dart';
 import '../../widgets/ui/ui.dart';
@@ -178,6 +179,9 @@ class _FeedsTabState extends State<FeedsTab> {
   }
 
   Future<void> _showFeedMenu(RSSFeed feed) async {
+    final bool muted = context
+        .read<SettingsProvider>()
+        .isFeedMutedForNotifications(feed.id);
     final String? choice = await showAppMenuSheet<String>(
       context,
       title: feed.title,
@@ -196,6 +200,13 @@ class _FeedsTabState extends State<FeedsTab> {
           value: 'edit',
           label: 'Edit',
           icon: Icons.edit_outlined,
+        ),
+        AppMenuOption<String>(
+          value: muted ? 'unmute' : 'mute',
+          label: muted ? 'Unmute alerts' : 'Mute alerts',
+          icon: muted
+              ? Icons.notifications_active_outlined
+              : Icons.notifications_off_outlined,
         ),
         AppMenuOption<String>(
           value: 'site',
@@ -220,6 +231,19 @@ class _FeedsTabState extends State<FeedsTab> {
         await _markFeedRead(feed);
       case 'edit':
         await showEditFeedSheet(context, feed);
+      case 'mute':
+      case 'unmute':
+        await context.read<SettingsProvider>().setFeedMutedForNotifications(
+          feed.id,
+          choice == 'mute',
+        );
+        if (!mounted) return;
+        AppSnackBar.success(
+          context,
+          choice == 'mute'
+              ? 'Muted alerts for ${feed.title}'
+              : 'Alerts on for ${feed.title}',
+        );
       case 'site':
         final Uri? uri = Uri.tryParse(feed.siteUrl ?? '');
         if (uri != null) {

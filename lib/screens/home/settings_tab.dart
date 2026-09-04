@@ -8,6 +8,9 @@ import '../../models/app_settings.dart';
 import '../../providers/article_provider.dart';
 import '../../providers/feed_provider.dart';
 import '../../providers/settings_provider.dart';
+import '../../services/notifications/notification_content.dart';
+import '../../services/notifications/notification_service.dart';
+import '../../services/notifications/refresh_scheduler.dart';
 import '../../theme/accent.dart';
 import '../../theme/app_tokens.dart';
 import '../../theme/app_typography.dart';
@@ -40,6 +43,7 @@ class SettingsTab extends StatelessWidget {
           _AppearanceSection(),
           _ReadingSection(),
           _FeedsSection(),
+          _NotificationsSection(),
           _AiSection(),
           _DataSection(),
           _AboutSection(),
@@ -710,6 +714,270 @@ class _FeedsSectionState extends State<_FeedsSection> {
       deleted == 0
           ? 'Nothing to clean up'
           : 'Deleted $deleted old article${deleted == 1 ? '' : 's'}',
+    );
+  }
+}
+
+// =============================================================================
+// Notifications
+// =============================================================================
+
+/// New-article alerts: background refresh, quiet hours, sound and per-feed
+/// control live here; the mute list itself is toggled per feed.
+class _NotificationsSection extends StatefulWidget {
+  const _NotificationsSection();
+
+  @override
+  State<_NotificationsSection> createState() => _NotificationsSectionState();
+}
+
+class _NotificationsSectionState extends State<_NotificationsSection> {
+  late final NotificationService _notifications = NotificationService();
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _notifications.init();
+  }
+
+  Future<void> _setEnabled(SettingsProvider settings, bool value) async {
+    if (!value) {
+      await settings.setNotificationsEnabled(false);
+      await syncNotificationSchedule(settings);
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      await _notifications.init();
+      final granted = await _notifications.requestPermission();
+      final allowed = granted || await _notifications.areEnabled();
+      await settings.setNotificationsEnabled(true);
+      await syncNotificationSchedule(settings);
+      if (!mounted) return;
+      if (allowed) {
+        AppSnackBar.success(context, 'Notifications on');
+      } else {
+        AppSnackBar.show(
+          context,
+          'Notifications enabled, but the OS is blocking them. '
+          'Allow FreeAd in system settings to receive alerts.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _pickInterval(SettingsProvider settings) async {
+    final int? picked = await showAppMenuSheet<int>(
+      context,
+      title: 'Check for new articles',
+      options: <AppMenuOption<int>>[
+        for (final int minutes
+            in SettingsProvider.notificationIntervalOptions)
+          AppMenuOption<int>(
+            value: minutes,
+            label: _checkLabel(minutes),
+            icon: settings.notificationCheckIntervalMinutes == minutes
+                ? Icons.check_rounded
+                : null,
+          ),
+      ],
+    );
+    if (picked == null) return;
+    await settings.setNotificationCheckIntervalMinutes(picked);
+    await syncNotificationSchedule(settings);
+  }
+
+  static String _checkLabel(int minutes) => switch (minutes) {
+    15 => 'Every 15 min',
+    30 => 'Every 30 min',
+    60 => 'Hourly',
+    180 => 'Every 3 hours',
+    360 => 'Every 6 hours',
+    _ => 'Every $minutes min',
+  };
+
+  Future<void> _pickQuietTime(
+    SettingsProvider settings, {
+    required bool isStart,
+  }) async {
+    final current = isStart
+        ? settings.quietHoursStartMinutes
+        : settings.quietHoursEndMinutes;
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(
+        hour: current ~/ 60,
+        minute: current % 60,
+      ),
+    );
+    if (picked == null) return;
+    final minutes = picked.hour * 60 + picked.minute;
+    if (isStart) {
+      await settings.setQuietHoursStartMinutes(minutes);
+    } else {
+      await settings.setQuietHoursEndMinutes(minutes);
+    }
+  }
+
+  Future<void> _setSoundOrVibrate(
+    SettingsProvider settings, {
+    bool? sound,
+    bool? vibrate,
+  }) async {
+    if (sound != null) await settings.setNotificationSound(sound);
+    if (vibrate != null) await settings.setNotificationVibrate(vibrate);
+    await _notifications.ensureChannel(
+      sound: sound ?? settings.notificationSound,
+      vibrate: vibrate ?? settings.notificationVibrate,
+    );
+  }
+
+  Future<void> _sendTest(SettingsProvider settings) async {
+    await _notifications.init();
+    await _notifications.ensureChannel(
+      sound: settings.notificationSound,
+      vibrate: settings.notificationVibrate,
+    );
+    await _notifications.showTest(
+      sound: settings.notificationSound,
+      vibrate: settings.notificationVibrate,
+    );
+    if (!mounted) return;
+    final allowed = await _notifications.areEnabled();
+    if (!mounted) return;
+    AppSnackBar.show(
+      context,
+      allowed
+          ? 'Test sent - check your notification shade.'
+          : 'Test sent, but the OS is blocking notifications.',
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final SettingsProvider settings = context.watch<SettingsProvider>();
+    final bool on = settings.notificationsEnabled;
+
+    return _Group(
+      label: 'Notifications',
+      icon: Icons.notifications_outlined,
+      children: <Widget>[
+        _SwitchRow(
+          title: 'New-article alerts',
+          subtitle: on
+              ? 'Background check ${_checkLabel(settings.notificationCheckIntervalMinutes).toLowerCase()}'
+              : 'Get notified when followed feeds publish',
+          value: on,
+          onChanged: _busy ? (_) {} : (v) => _setEnabled(settings, v),
+        ),
+        _NavRow(
+          title: 'Check frequency',
+          trailingText: _checkLabel(
+            settings.notificationCheckIntervalMinutes,
+          ),
+          onTap: () => _pickInterval(settings),
+        ),
+        _SwitchRow(
+          title: 'Quiet hours',
+          subtitle: on && settings.quietHoursEnabled
+              ? '${formatDayMinutes(settings.quietHoursStartMinutes)} - '
+                    '${formatDayMinutes(settings.quietHoursEndMinutes)} silent'
+              : 'No alerts overnight, refresh still runs',
+          value: settings.quietHoursEnabled,
+          onChanged: settings.setQuietHoursEnabled,
+        ),
+        if (settings.quietHoursEnabled) ...<Widget>[
+          _NavRow(
+            title: 'Quiet from',
+            trailingText: formatDayMinutes(
+              settings.quietHoursStartMinutes,
+            ),
+            onTap: () => _pickQuietTime(settings, isStart: true),
+          ),
+          _NavRow(
+            title: 'Quiet until',
+            trailingText: formatDayMinutes(
+              settings.quietHoursEndMinutes,
+            ),
+            onTap: () => _pickQuietTime(settings, isStart: false),
+          ),
+        ],
+        _SwitchRow(
+          title: 'Sound',
+          value: settings.notificationSound,
+          onChanged: (v) => _setSoundOrVibrate(settings, sound: v),
+        ),
+        _SwitchRow(
+          title: 'Vibration',
+          value: settings.notificationVibrate,
+          onChanged: (v) => _setSoundOrVibrate(settings, vibrate: v),
+        ),
+        _NavRow(
+          title: 'Send test notification',
+          icon: Icons.send_outlined,
+          subtitle: 'Verify sound, vibration and tap behaviour',
+          onTap: () => _sendTest(settings),
+        ),
+        _NavRow(
+          title: 'Muted feeds',
+          icon: Icons.notifications_off_outlined,
+          subtitle: settings.mutedNotificationFeeds.isEmpty
+              ? 'Every feed can alert - mute one from its menu'
+              : '${settings.mutedNotificationFeeds.length} muted',
+          onTap: () => _showMutedFeeds(settings),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _showMutedFeeds(SettingsProvider settings) async {
+    final muted = settings.mutedNotificationFeeds;
+    if (muted.isEmpty) {
+      AppSnackBar.show(
+        context,
+        'Nothing muted. Long-press a feed to mute its alerts.',
+      );
+      return;
+    }
+    final feeds = context.read<FeedProvider>().feedsByCategory.values
+        .expand((list) => list)
+        .where((feed) => muted.contains(feed.id))
+        .toList();
+    await showAppBottomSheet<void>(
+      context,
+      title: 'Muted feeds',
+      builder: (BuildContext context) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          for (final feed in feeds)
+            ListTile(
+              dense: true,
+              title: Text(
+                feed.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              trailing: TextButton(
+                onPressed: () async {
+                  await settings.setFeedMutedForNotifications(
+                    feed.id,
+                    false,
+                  );
+                  if (context.mounted) Navigator.of(context).pop();
+                },
+                child: const Text('Unmute'),
+              ),
+            ),
+          if (feeds.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(24),
+              child: Text('Muted feeds were deleted. Nothing to show.'),
+            ),
+        ],
+      ),
     );
   }
 }

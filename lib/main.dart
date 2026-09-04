@@ -1,22 +1,74 @@
+import 'dart:io';
+
 import 'package:dynamic_color/dynamic_color.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:workmanager/workmanager.dart';
 
 import 'providers/article_provider.dart';
 import 'providers/feed_provider.dart';
 import 'providers/settings_provider.dart';
+import 'screens/feeds/feed_articles_screen.dart';
 import 'screens/home_screen.dart';
+import 'screens/reader/article_reading_screen.dart';
 import 'services/ai/ai_service.dart';
+import 'services/database_service.dart';
+import 'services/notifications/feed_refresh_task.dart';
+import 'services/notifications/notification_payload.dart';
+import 'services/notifications/notification_service.dart';
+import 'services/notifications/refresh_scheduler.dart';
 import 'theme/app_theme.dart';
 import 'theme/app_tokens.dart';
 import 'utils/app_logger.dart';
+
+/// Lets notification taps navigate without a BuildContext.
+final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
+
+/// Routes a notification tap to the right screen. Safe to call before the
+/// first frame (no-op until the navigator exists).
+Future<void> routeNotificationTap(NotificationPayload payload) async {
+  final nav = appNavigatorKey.currentState;
+  if (nav == null) return;
+  try {
+    if (payload.isArticle && payload.id != null) {
+      final article = await DatabaseService().getArticleById(payload.id!);
+      if (article == null) return;
+      await nav.push(
+        MaterialPageRoute<void>(
+          builder: (_) => ArticleReadingScreen(article: article),
+        ),
+      );
+    } else if (payload.isFeed && payload.id != null) {
+      final feed = await DatabaseService().getFeedById(payload.id!);
+      if (feed == null) return;
+      await nav.push(
+        MaterialPageRoute<void>(
+          builder: (_) =>
+              FeedArticlesScreen(feedId: feed.id, feedTitle: feed.title),
+        ),
+      );
+    }
+    // Home payloads need no navigation: the app already opens there.
+  } catch (e, st) {
+    AppLog.w('Could not route notification tap', e, st);
+  }
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // Draw behind the status and gesture bars; the glass bars blur what is under
   // them.
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  // Periodic background refresh for new-article alerts (Android only).
+  try {
+    if (!kIsWeb && Platform.isAndroid) {
+      await Workmanager().initialize(feedRefreshDispatcher);
+    }
+  } catch (e, st) {
+    AppLog.w('WorkManager init failed; background alerts disabled', e, st);
+  }
   runApp(const FreeAdApp());
 }
 
@@ -48,6 +100,7 @@ class FreeAdApp extends StatelessWidget {
               final useDynamic = settings.useDynamicColor;
               return MaterialApp(
                 title: 'FreeAd',
+                navigatorKey: appNavigatorKey,
                 theme: AppTheme.light(
                   accent: settings.accent,
                   dynamicScheme: useDynamic ? lightDynamic : null,
@@ -120,8 +173,15 @@ class _AppInitializerState extends State<AppInitializer> {
     final feedProvider = context.read<FeedProvider>();
     final articleProvider = context.read<ArticleProvider>();
 
+    final notifications = NotificationService();
     try {
       await settingsProvider.init();
+      await notifications.init(onTap: routeNotificationTap);
+      await notifications.ensureChannel(
+        sound: settingsProvider.notificationSound,
+        vibrate: settingsProvider.notificationVibrate,
+      );
+      await syncNotificationSchedule(settingsProvider);
       await feedProvider.loadFeeds();
       await articleProvider.loadArticles();
     } catch (e, st) {
@@ -132,6 +192,14 @@ class _AppInitializerState extends State<AppInitializer> {
     Navigator.of(
       context,
     ).pushReplacement(MaterialPageRoute(builder: (_) => const HomeScreen()));
+
+    // A notification tap that cold-started the app.
+    try {
+      final launch = await notifications.consumeLaunchPayload();
+      if (launch != null && mounted) await routeNotificationTap(launch);
+    } catch (e, st) {
+      AppLog.w('Could not route launch notification', e, st);
+    }
   }
 
   @override

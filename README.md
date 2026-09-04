@@ -18,6 +18,10 @@ A streaming chat sheet grounded in the article's own text (RSS excerpt or extrac
 - Automatic categorisation on add/import: an offline keyword/known-domain heuristic by default, or a one-shot AI pass that can also propose new categories — both previewed before applying.
 - Parallel feed refresh with per-feed status/errors, unread counts per feed and category, OPML import/export, starter packs for quick setup.
 
+### Notifications
+- New-article alerts via a background refresh (WorkManager, 15 min – 6 h interval, Wi-Fi-independent but connection-gated).
+- Customisable: quiet hours (e.g. 22:00–07:00, refresh still runs), per-feed mute, sound/vibration toggles, single-article deep links and multi-article inbox digests, plus a test notification button.
+
 ### Design
 A "quiet instrument" look: near-black/off-white surfaces, hairline borders instead of shadows, one user-selectable accent colour (plus optional Material You dynamic colour on Android 12+), pure-black (AMOLED) mode, and the Space Grotesk / Inter / Literata type system — bundled, not fetched. Card / List / Compact article layouts with swipe actions and date grouping.
 
@@ -56,4 +60,4 @@ flutter build apk --release
 
 ## Not in scope (yet)
 
-Background sync (WorkManager), push notifications, text-to-speech, iOS polish, desktop builds.
+Text-to-speech, iOS polish, desktop builds.

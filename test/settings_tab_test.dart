@@ -49,6 +49,7 @@ const List<String> _sectionHeaders = <String>[
   'APPEARANCE',
   'READING',
   'FEEDS & SYNC',
+  'NOTIFICATIONS',
   'AI',
   'DATA',
   'ABOUT',
@@ -63,9 +64,9 @@ void main() {
       (WidgetTester tester) async {
         // ListView(children: ...) still lazily *mounts* elements by viewport +
         // cacheExtent even though the Widget objects are all constructed
-        // upfront - tall enough that all six sections are actually built, not
-        // just instantiated, so find.text can see every header.
-        tester.view.physicalSize = const Size(360, 4000);
+        // upfront - tall enough that all seven sections are actually built,
+        // not just instantiated, so find.text can see every header.
+        tester.view.physicalSize = const Size(360, 5200);
         tester.view.devicePixelRatio = 1.0;
         addTearDown(tester.view.reset);
 

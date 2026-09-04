@@ -47,6 +47,15 @@ class SettingsProvider with ChangeNotifier {
   static const String customInstructionsKey = 'custom_instructions';
   static const String savedPromptsKey = 'saved_prompts';
 
+  static const String notificationsEnabledKey = 'notifications_enabled';
+  static const String notificationIntervalKey = 'notification_interval';
+  static const String quietHoursEnabledKey = 'quiet_hours_enabled';
+  static const String quietHoursStartKey = 'quiet_hours_start';
+  static const String quietHoursEndKey = 'quiet_hours_end';
+  static const String notificationSoundKey = 'notification_sound';
+  static const String notificationVibrateKey = 'notification_vibrate';
+  static const String mutedNotificationFeedsKey = 'muted_notification_feeds';
+
   static const String accentKey = 'accent';
   static const String dynamicColorKey = 'use_dynamic_color';
   static const String pureBlackKey = 'pure_black';
@@ -82,6 +91,19 @@ class SettingsProvider with ChangeNotifier {
   /// Allowed values for [articleRetentionDays] (0 = forever).
   static const List<int> retentionOptions = <int>[7, 30, 90, 0];
 
+  /// Allowed background-check intervals in minutes (WorkManager minimum).
+  static const List<int> notificationIntervalOptions = <int>[
+    15,
+    30,
+    60,
+    180,
+    360,
+  ];
+
+  /// Default quiet-hours window (22:00-07:00), minutes since midnight.
+  static const int defaultQuietStartMinutes = 22 * 60;
+  static const int defaultQuietEndMinutes = 7 * 60;
+
   SharedPreferences? _prefs;
   final _secureStorage = const FlutterSecureStorage();
 
@@ -108,6 +130,16 @@ class SettingsProvider with ChangeNotifier {
   bool _prefetchFullArticles = false;
   int _articleRetentionDays = 30;
   DateTime? _lastRefreshAt;
+
+  // --- notifications ---------------------------------------------------------
+  bool _notificationsEnabled = false;
+  int _notificationCheckIntervalMinutes = 60;
+  bool _quietHoursEnabled = false;
+  int _quietHoursStartMinutes = defaultQuietStartMinutes;
+  int _quietHoursEndMinutes = defaultQuietEndMinutes;
+  bool _notificationSound = true;
+  bool _notificationVibrate = true;
+  Set<String> _mutedNotificationFeeds = <String>{};
 
   // --- ai --------------------------------------------------------------------
   String _summarizationProvider = providerGemini;
@@ -159,6 +191,22 @@ class SettingsProvider with ChangeNotifier {
   bool get prefetchFullArticles => _prefetchFullArticles;
   int get articleRetentionDays => _articleRetentionDays;
   DateTime? get lastRefreshAt => _lastRefreshAt;
+
+  bool get notificationsEnabled => _notificationsEnabled;
+  int get notificationCheckIntervalMinutes =>
+      _notificationCheckIntervalMinutes;
+  bool get quietHoursEnabled => _quietHoursEnabled;
+  int get quietHoursStartMinutes => _quietHoursStartMinutes;
+  int get quietHoursEndMinutes => _quietHoursEndMinutes;
+  bool get notificationSound => _notificationSound;
+  bool get notificationVibrate => _notificationVibrate;
+
+  /// Feed ids excluded from new-article alerts (refresh still runs).
+  Set<String> get mutedNotificationFeeds =>
+      Set.unmodifiable(_mutedNotificationFeeds);
+
+  bool isFeedMutedForNotifications(String feedId) =>
+      _mutedNotificationFeeds.contains(feedId);
 
   String get summarizationProvider => _summarizationProvider;
   bool get autoSaveSummaries => _autoSaveSummaries;
@@ -243,6 +291,30 @@ class SettingsProvider with ChangeNotifier {
     _lastRefreshAt = lastRefreshRaw == null
         ? null
         : DateTime.tryParse(lastRefreshRaw);
+
+    _notificationsEnabled =
+        prefs?.getBool(notificationsEnabledKey) ?? false;
+    final storedInterval = prefs?.getInt(notificationIntervalKey) ?? 60;
+    _notificationCheckIntervalMinutes =
+        notificationIntervalOptions.contains(storedInterval)
+        ? storedInterval
+        : 60;
+    _quietHoursEnabled = prefs?.getBool(quietHoursEnabledKey) ?? false;
+    _quietHoursStartMinutes =
+        (prefs?.getInt(quietHoursStartKey) ?? defaultQuietStartMinutes).clamp(
+          0,
+          24 * 60 - 1,
+        );
+    _quietHoursEndMinutes =
+        (prefs?.getInt(quietHoursEndKey) ?? defaultQuietEndMinutes).clamp(
+          0,
+          24 * 60 - 1,
+        );
+    _notificationSound = prefs?.getBool(notificationSoundKey) ?? true;
+    _notificationVibrate = prefs?.getBool(notificationVibrateKey) ?? true;
+    _mutedNotificationFeeds =
+        prefs?.getStringList(mutedNotificationFeedsKey)?.toSet() ??
+        <String>{};
 
     _summarizationProvider =
         prefs?.getString(summarizationProviderKey) ?? providerGemini;
@@ -421,6 +493,74 @@ class SettingsProvider with ChangeNotifier {
     } else {
       await _prefs?.setString(lastRefreshAtKey, value.toIso8601String());
     }
+    notifyListeners();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Notification setters
+  // ---------------------------------------------------------------------------
+
+  Future<void> setNotificationsEnabled(bool value) async {
+    _notificationsEnabled = value;
+    await _prefs?.setBool(notificationsEnabledKey, value);
+    notifyListeners();
+  }
+
+  Future<void> setNotificationCheckIntervalMinutes(int minutes) async {
+    final valid = notificationIntervalOptions.contains(minutes)
+        ? minutes
+        : 60;
+    _notificationCheckIntervalMinutes = valid;
+    await _prefs?.setInt(notificationIntervalKey, valid);
+    notifyListeners();
+  }
+
+  Future<void> setQuietHoursEnabled(bool value) async {
+    _quietHoursEnabled = value;
+    await _prefs?.setBool(quietHoursEnabledKey, value);
+    notifyListeners();
+  }
+
+  Future<void> setQuietHoursStartMinutes(int minutes) async {
+    _quietHoursStartMinutes = minutes.clamp(0, 24 * 60 - 1);
+    await _prefs?.setInt(quietHoursStartKey, _quietHoursStartMinutes);
+    notifyListeners();
+  }
+
+  Future<void> setQuietHoursEndMinutes(int minutes) async {
+    _quietHoursEndMinutes = minutes.clamp(0, 24 * 60 - 1);
+    await _prefs?.setInt(quietHoursEndKey, _quietHoursEndMinutes);
+    notifyListeners();
+  }
+
+  Future<void> setNotificationSound(bool value) async {
+    _notificationSound = value;
+    await _prefs?.setBool(notificationSoundKey, value);
+    notifyListeners();
+  }
+
+  Future<void> setNotificationVibrate(bool value) async {
+    _notificationVibrate = value;
+    await _prefs?.setBool(notificationVibrateKey, value);
+    notifyListeners();
+  }
+
+  /// Mutes or unmutes new-article alerts for one feed.
+  Future<void> setFeedMutedForNotifications(
+    String feedId,
+    bool muted,
+  ) async {
+    if (muted) {
+      _mutedNotificationFeeds = {..._mutedNotificationFeeds, feedId};
+    } else {
+      _mutedNotificationFeeds = _mutedNotificationFeeds
+          .where((id) => id != feedId)
+          .toSet();
+    }
+    await _prefs?.setStringList(
+      mutedNotificationFeedsKey,
+      _mutedNotificationFeeds.toList(),
+    );
     notifyListeners();
   }
 
@@ -752,6 +892,14 @@ class SettingsProvider with ChangeNotifier {
         prefetchFullArticlesKey,
         articleRetentionDaysKey,
         lastRefreshAtKey,
+        notificationsEnabledKey,
+        notificationIntervalKey,
+        quietHoursEnabledKey,
+        quietHoursStartKey,
+        quietHoursEndKey,
+        notificationSoundKey,
+        notificationVibrateKey,
+        mutedNotificationFeedsKey,
         summarizationProviderKey,
         autoSaveSummariesKey,
         summaryStyleKey,

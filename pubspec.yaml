@@ -77,6 +77,8 @@ dependencies:
 
   # Secure storage for API keys
   flutter_secure_storage: ^10.3.1
+  flutter_local_notifications: ^20.1.0
+  workmanager: ^0.9.2
 
 dev_dependencies:
   flutter_test:
@@ -138,3 +140,12 @@ flutter:
           weight: 600
         - asset: assets/fonts/Literata-Bold.ttf
           weight: 700
+
+dependency_overrides:
+  # workmanager 0.9.x resolves a skewed triple on Flutter 3.32:
+  # interface 0.9.4 added foreground-service types that apple 0.9.4 does
+  # not implement, while android 0.9.3 requires them. Pinning android to
+  # 0.9.2 and the interface to 0.9.3 gives a mutually consistent set.
+  # workmanager 0.10.x needs Flutter 3.38+, so revisit on toolchain bump.
+  workmanager_android: 0.9.2
+  workmanager_platform_interface: 0.9.3

@@ -627,6 +627,26 @@ class DatabaseService {
     return List.generate(maps.length, (i) => Article.fromJson(maps[i]));
   }
 
+  /// Articles first stored at or after [since], newest first.
+  ///
+  /// The background refresh uses this to find what a run actually added:
+  /// freshly fetched articles get `dateAdded = now` at parse time, while
+  /// re-fetched duplicates keep their original row.
+  Future<List<Article>> getArticlesAddedSince(
+    DateTime since, {
+    int limit = 50,
+  }) async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'articles',
+      where: 'dateAdded >= ?',
+      whereArgs: [since.toIso8601String()],
+      orderBy: 'dateAdded DESC',
+      limit: limit,
+    );
+    return List.generate(maps.length, (i) => Article.fromJson(maps[i]));
+  }
+
   Future<List<Article>> getArticlesByFeed(String feedId) async {
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.query(
